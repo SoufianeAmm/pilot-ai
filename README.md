@@ -81,7 +81,7 @@ FlowPilot AI aims to address this challenge through an intelligent project analy
 | Persistence | Spring Data JPA, Hibernate |
 | Security | Spring Security |
 | Database | PostgreSQL |
-| AI Integration | Spring AI, LLM API |
+| AI Integration | OLLAMA |
 | Semantic Search | pgvector, embeddings, RAG |
 | API Documentation | OpenAPI / Swagger UI |
 | Reverse Proxy & Load Balancing | Nginx |
@@ -111,13 +111,12 @@ The backend follows a **modular monolith architecture**. Spring Cloud and micros
               +-----------+-----------+
               |                       |
               v                       v
-          PostgreSQL             LLM API
-          + pgvector          via Spring AI
+          PostgreSQL                OLLAMA
 ```
 
 The application backend is organized into modules responsible for identity, organizations, projects, tasks, collaboration, documents, AI, analytics, notifications, and auditing.
 
-Nginx distributes incoming requests across application instances. PostgreSQL stores persistent application data and vector embeddings, while Spring AI connects the backend to the configured language model provider.
+Nginx distributes incoming requests across application instances. PostgreSQL stores persistent application data and vector embeddings, while OLLAMA AI connects the backend to the configured language model provider.
 
 AI operations are designed to respect application permissions, use controlled backend tools, and distinguish factual project data from generated recommendations.
 
@@ -148,7 +147,7 @@ The project aims to evaluate AI responses for factual correctness, citation qual
 
 ## 🚧 Development Roadmap
 
-- [ ] Requirements analysis and system architecture
+- [X] Requirements analysis and system architecture
 - [ ] Database schema and project structure
 - [ ] Authentication and organization management
 - [ ] Project and task management
@@ -169,8 +168,7 @@ The application is under development, and the complete deployment procedure will
 
 The planned development environment includes:
 
-- Java LTS version compatible with the selected Spring Boot release
-- Maven
+- JDK 21
 - Node.js and npm
 - Docker and Docker Compose
 - PostgreSQL, if running the database outside Docker
