@@ -245,13 +245,13 @@ def cd_identity_auth():
                          "+ revoke(String rawToken): void", "+ revokeFamily(UUID familyId): void",
                          "- hash(String rawToken): byte[]  (SHA-256)"])
     lim = d.box("lim", "LoginAttemptLimiter", svc.x, below(svc, 40), stereotype="service",
-                attrs=["- buckets: ProxyManager  (Bucket4j, PostgreSQL)"],
+                attrs=["- jdbc: JdbcClient  (table login_attempt, shared by replicas)"],
                 methods=["+ checkAllowed(String email, String ip): void", "+ recordFailure(String email, String ip): void",
                          "+ reset(String email, String ip): void"])
     pol = d.box("pol", "PasswordPolicy", svc.x, below(lim, 30),
                 methods=["+ validate(String password): void  (12..128 chars)"])
     enc = d.box("enc", "PasswordEncoder", jwt.x, below(rts, 24), kind="interface", tone="external",
-                stereotype="interface  Spring Security", methods=["+ encode(CharSequence): String",
+                stereotype="interface  Spring Security (Argon2id bean)", methods=["+ encode(CharSequence): String",
                                                                "+ matches(CharSequence, String): boolean"])
     audit = d.box("audit", "AuditTrail", jwt.x, below(enc, 24), kind="interface", stereotype="interface  audit",
                   methods=["+ record(AuditEvent): void"])
@@ -263,7 +263,7 @@ def cd_identity_auth():
     issued = d.box("issued", "IssuedRefreshToken", right(access, 30), yrec, kind="record",
                    attrs=["rawValue: String", "expiresAt: Instant"])
     rotated = d.box("rotated", "Rotated", right(issued, 30), yrec, kind="record",
-                    attrs=["user: User", "newToken: IssuedRefreshToken"])
+                    attrs=["userId: UUID", "newToken: IssuedRefreshToken"])
     client = d.box("client", "ClientInfo", right(rotated, 30), yrec, kind="record",
                    attrs=["ip: String", "userAgent: String"])
     cmd = d.box("cmd", "RegisterCommand", right(client, 30), yrec, kind="record",
@@ -298,7 +298,7 @@ def cd_identity_core():
     d = ClassDiagram(LEGEND)
     cfg = d.box("cfg", "SecurityConfig", 0, 0, stereotype="configuration",
                 methods=["+ securityFilterChain(HttpSecurity): SecurityFilterChain",
-                         "+ passwordEncoder(): PasswordEncoder  (Argon2id)",
+                         "    + CookieRequestGuard (CSRF check for /refresh, /logout)",
                          "+ corsConfigurationSource(): CorsConfigurationSource"])
     filt = d.box("filter", "JwtAuthenticationFilter", 0, below(cfg, 40), stereotype="extends OncePerRequestFilter",
                  attrs=["- jwt: JwtService"],
@@ -322,7 +322,7 @@ def cd_identity_core():
                  attrs=["- users: UserRepository"])
     yd = max(below(jwt, 50), below(impl, 60), below(me, 60))
     user = d.box("user", "User", 0, yd, kind="entity",
-                 attrs=["- id: UUID", "- email: String  (citext, unique)", "- passwordHash: String",
+                 attrs=["- id: UUID", "- email: String  (lower-cased, unique)", "- passwordHash: String",
                         "- displayName: String", "- status: UserStatus", "- createdAt: Instant", "- version: long"],
                  methods=["+ changeDisplayName(String): void", "+ disable(): void", "+ isActive(): boolean"])
     status = d.box("status", "UserStatus", 0, below(user, 30), kind="enum", attrs=["ACTIVE", "DISABLED"])
@@ -333,7 +333,8 @@ def cd_identity_core():
                            "+ replaceWith(UUID newId, Instant now): void"])
     urepo = d.box("urepo", "UserRepository", right(token, 70), yd, kind="interface",
                   stereotype="interface  JpaRepository<User, UUID>",
-                  methods=["+ findByEmailIgnoreCase(String): Optional<User>", "+ existsByEmailIgnoreCase(String): boolean",
+                  methods=["+ findByEmail(String normalizedEmail): Optional<User>",
+                           "+ existsByEmail(String normalizedEmail): boolean",
                            "+ findAllByIdIn(Collection<UUID>): List<User>"])
     trepo = d.box("trepo", "RefreshTokenRepository", urepo.x, below(urepo, 30), kind="interface",
                   stereotype="interface  JpaRepository<RefreshToken, UUID>",
@@ -509,6 +510,7 @@ def cd_audit():
                     attrs=["AUTH_REGISTERED = \"auth.registered\"",
                            "AUTH_LOGIN_SUCCEEDED = \"auth.login.succeeded\"",
                            "AUTH_LOGIN_FAILED = \"auth.login.failed\"",
+                           "AUTH_LOGIN_RATE_LIMITED = \"auth.login.rate_limited\"",
                            "AUTH_REFRESH_REUSE_DETECTED = \"auth.refresh.reuse_detected\"",
                            "ORG_CREATED = \"org.created\"", "MEMBER_INVITED = \"org.member.invited\"",
                            "MEMBER_JOINED = \"org.member.joined\"",
@@ -846,7 +848,7 @@ def sd_register():
     s.ret("pol", "svc", "WeakPasswordException")
     s.ret("ctrl", "spa", "400 application/problem+json")
     s.end()
-    s.msg("svc", "repo", "existsByEmailIgnoreCase(email)")
+    s.msg("svc", "repo", "existsByEmail(normalizedEmail)")
     s.ret("repo", "svc", "boolean")
     s.begin("alt", "[email already registered]")
     s.ret("svc", "ctrl", "EmailAlreadyRegisteredException")
@@ -877,7 +879,7 @@ def sd_login():
     s.ret("lim", "svc", "TooManyLoginAttemptsException")
     s.ret("ctrl", "spa", "429 + Retry-After")
     s.end()
-    s.msg("svc", "repo", "findByEmailIgnoreCase(email)")
+    s.msg("svc", "repo", "findByEmail(normalizedEmail)")
     s.ret("repo", "svc", "Optional<User>")
     s.msg("svc", "enc", "matches(password, hash or dummy hash)")
     s.ret("enc", "svc", "boolean")
@@ -929,7 +931,7 @@ def sd_refresh():
     s.else_("[active]")
     s.self_msg("rts", "old.replaceWith(newId, now)")
     s.msg("rts", "repo", "save(old); save(new token, same familyId)")
-    s.ret("rts", "svc", "Rotated(user, newToken)")
+    s.ret("rts", "svc", "Rotated(userId, newToken)")
     s.msg("svc", "jwt", "issueAccessToken(user)")
     s.ret("jwt", "svc", "AccessToken")
     s.ret("svc", "ctrl", "AuthTokens")

@@ -6,12 +6,13 @@ import java.util.Objects;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -21,7 +22,8 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 /**
  * Turns every error into an RFC 9457 problem response carrying the request id.
  * Spring MVC's own exceptions (404, 405, malformed JSON, …) are handled by the parent
- * class; unexpected exceptions are logged server-side and never leak details to clients.
+ * class; Spring Security's 401/403 are routed here by the security configuration;
+ * unexpected exceptions are logged server-side and never leak details to clients.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
@@ -33,10 +35,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         if (ex.status().is5xxServerError()) {
             log.error("API error", ex);
         }
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(ex.status(), ex.getMessage());
-        problem.setType(ex.type());
-        problem.setTitle(ex.title());
-        return ResponseEntity.status(ex.status()).body(withRequestId(problem));
+        return Problems.response(ex);
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    ResponseEntity<ProblemDetail> handleAuthentication(AuthenticationException ex) {
+        ResponseEntity<ProblemDetail> response = Problems.response(
+                ApiException.unauthorized("Authentication is required: send a valid access token."));
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
+                .body(response.getBody());
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    ResponseEntity<ProblemDetail> handleAccessDenied(AccessDeniedException ex) {
+        return Problems.response(ApiException.forbidden("You do not have permission to perform this action."));
     }
 
     @ExceptionHandler(Exception.class)
@@ -46,7 +59,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 "An unexpected error occurred. Quote the request id when reporting this problem.");
         problem.setType(ProblemTypes.INTERNAL);
         problem.setTitle("Internal error");
-        return ResponseEntity.internalServerError().body(withRequestId(problem));
+        return ResponseEntity.internalServerError().body(Problems.withRequestId(problem));
     }
 
     @Override
@@ -72,16 +85,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                                                              HttpStatusCode statusCode, WebRequest request) {
         ResponseEntity<Object> response = super.handleExceptionInternal(ex, body, headers, statusCode, request);
         if (response != null && response.getBody() instanceof ProblemDetail problem) {
-            withRequestId(problem);
+            Problems.withRequestId(problem);
         }
         return response;
-    }
-
-    private static ProblemDetail withRequestId(ProblemDetail problem) {
-        String requestId = MDC.get(RequestIdFilter.MDC_KEY);
-        if (requestId != null) {
-            problem.setProperty("requestId", requestId);
-        }
-        return problem;
     }
 }
