@@ -21,6 +21,10 @@ frontend/playwright-report/
 frontend/test-results/
 *.tsbuildinfo
 
+# --- Python (docs/uml generator) ---
+__pycache__/
+.venv/
+
 # --- Runtime data ---
 data/
 logs/
