@@ -1,0 +1,13 @@
+# Local development: ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+# Reads passwords from the repository's .env file and migrates on startup for convenience.
+spring:
+  config:
+    import: optional:file:../.env[.properties]
+  flyway:
+    enabled: true
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
