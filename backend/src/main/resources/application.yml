@@ -1,0 +1,62 @@
+# Base configuration. Secrets come from environment variables only; there are no
+# default passwords, so a misconfigured deployment fails at startup instead of running insecurely.
+spring:
+  application:
+    name: flowpilot
+  datasource:
+    url: ${FLOWPILOT_DB_URL:jdbc:postgresql://localhost:5432/flowpilot}
+    username: ${FLOWPILOT_DB_APP_USER:flowpilot_app}
+    password: ${FLOWPILOT_DB_APP_PASSWORD:}
+    hikari:
+      # 2 replicas x 15 = 30 connections, well below PostgreSQL's max_connections (100).
+      maximum-pool-size: ${FLOWPILOT_DB_POOL_SIZE:15}
+      minimum-idle: 2
+      connection-timeout: 3000
+      max-lifetime: 1800000
+  jpa:
+    open-in-view: false        # never hold a DB connection for the whole HTTP request
+    hibernate:
+      ddl-auto: validate       # the schema is owned by Flyway, Hibernate only checks it
+  flyway:
+    # Replicas never migrate. Only the "migrate" profile (one-shot service) and tests enable it.
+    enabled: false
+    default-schema: app
+    schemas: app
+    create-schemas: false      # schema "app" is created by infra/postgres/init
+    user: ${FLOWPILOT_DB_MIGRATOR_USER:flowpilot_migrator}
+    password: ${FLOWPILOT_DB_MIGRATOR_PASSWORD:}
+
+server:
+  port: 8080
+  shutdown: graceful
+  forward-headers-strategy: native   # trust X-Forwarded-* only from private-network proxies (Nginx)
+  max-http-request-header-size: 16KB
+  tomcat:
+    threads:
+      max: 100                 # bounded: overload produces queuing/rejection, not unbounded growth
+      min-spare: 10
+    accept-count: 50
+    connection-timeout: 10s
+
+management:
+  server:
+    port: 8081                 # separate port, never exposed through Nginx
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true          # /actuator/health/liveness and /readiness
+      show-details: never
+
+springdoc:
+  api-docs:
+    enabled: false             # enabled in the dev profile only
+  swagger-ui:
+    enabled: false
+
+logging:
+  pattern:
+    level: "%5p [%X{requestId:-}]"

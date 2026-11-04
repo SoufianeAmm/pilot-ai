@@ -1,0 +1,6 @@
+# One-shot migration mode used by the "migrate" Docker Compose service.
+spring:
+  main:
+    web-application-type: none
+  flyway:
+    enabled: true

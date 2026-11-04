@@ -1,0 +1,19 @@
+# Normalize text files to LF in the repository.
+* text=auto eol=lf
+
+# Files executed inside Linux containers must always have LF endings,
+# even when checked out on Windows (otherwise: "/bin/sh^M: not found").
+*.sh   text eol=lf
+mvnw   text eol=lf
+
+# Windows scripts keep CRLF.
+*.cmd  text eol=crlf
+*.bat  text eol=crlf
+*.ps1  text eol=crlf
+
+# Binary files.
+*.jar  binary
+*.png  binary
+*.jpg  binary
+*.ico  binary
+*.pdf  binary
