@@ -55,10 +55,11 @@ class ApplicationIT extends PostgresIntegrationTest {
     }
 
     @Test
-    void unknownApiPath_returns404Problem() throws Exception {
+    void protectedApiPath_withoutToken_returns401Problem() throws Exception {
         HttpResponse<String> response = get(serverPort, "/api/v1/does-not-exist", null);
 
-        assertThat(response.statusCode()).isEqualTo(404);
+        assertThat(response.statusCode()).isEqualTo(401);
+        assertThat(response.headers().firstValue("WWW-Authenticate")).hasValue("Bearer");
         assertThat(response.headers().firstValue("Content-Type")).hasValueSatisfying(
                 type -> assertThat(type).startsWith("application/problem+json"));
         assertThat(response.body()).contains("\"requestId\"");

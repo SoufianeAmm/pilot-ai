@@ -13,6 +13,8 @@ x-backend-image: &backend-image
 x-app-environment: &app-environment
   FLOWPILOT_DB_URL: jdbc:postgresql://db:5432/flowpilot
   FLOWPILOT_DB_APP_PASSWORD: ${FLOWPILOT_DB_APP_PASSWORD:?set FLOWPILOT_DB_APP_PASSWORD in .env}
+  FLOWPILOT_JWT_SECRET: ${FLOWPILOT_JWT_SECRET:?set FLOWPILOT_JWT_SECRET in .env}
+  FLOWPILOT_ALLOWED_ORIGINS: ${FLOWPILOT_ALLOWED_ORIGINS:-http://localhost:5173}
   LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
 
 services:

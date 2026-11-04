@@ -3,6 +3,9 @@
 spring:
   application:
     name: flowpilot
+  autoconfigure:
+    # users come from our own database; no generated in-memory user
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
   datasource:
     url: ${FLOWPILOT_DB_URL:jdbc:postgresql://localhost:5432/flowpilot}
     username: ${FLOWPILOT_DB_APP_USER:flowpilot_app}
@@ -50,6 +53,23 @@ management:
       probes:
         enabled: true          # /actuator/health/liveness and /readiness
       show-details: never
+
+flowpilot:
+  security:
+    # origins allowed for CORS and for the cookie endpoints' Origin check (comma-separated)
+    allowed-origins: ${FLOWPILOT_ALLOWED_ORIGINS:http://localhost:5173}
+    jwt:
+      secret: ${FLOWPILOT_JWT_SECRET:}   # base64 of >= 32 random bytes; required, no default
+      issuer: flowpilot
+      access-token-ttl: 15m
+    refresh-token:
+      ttl: 7d
+      cookie-secure: true      # browsers accept Secure cookies on http://localhost
+      reuse-grace: 10s
+    login:
+      max-failures: 5          # per account + IP
+      max-failures-per-ip: 30  # all accounts, against password spraying
+      window: 15m
 
 springdoc:
   api-docs:

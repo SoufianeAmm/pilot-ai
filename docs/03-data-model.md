@@ -41,7 +41,7 @@ erDiagram
 
   APP_USER {
     uuid id PK
-    citext email UK
+    varchar email UK "stored lower-cased"
     text password_hash
     text display_name
     text status "ACTIVE|DISABLED"
@@ -73,7 +73,7 @@ erDiagram
   INVITATION {
     uuid id PK
     uuid org_id FK
-    citext email
+    varchar email "stored lower-cased"
     text role
     bytea token_hash UK
     uuid invited_by FK
@@ -258,7 +258,9 @@ erDiagram
   }
 ```
 
-Infrastructure tables (not shown): `flyway_schema_history`, `event_publication` (Spring Modulith outbox), `shedlock`, `bucket` (Bucket4j).
+Infrastructure tables (not shown): `flyway_schema_history`, `login_attempt` (failed-login counters), `event_publication` (Spring Modulith outbox), `shedlock`, `bucket` (Bucket4j, AI quotas).
+
+**Email case-insensitivity:** emails are trimmed and lower-cased by the application before they are stored or looked up, and a `CHECK (email = lower(btrim(email)))` constraint enforces it, so the plain unique constraint is case-insensitive. This replaced the earlier `citext` plan: it keeps the column a normal `varchar` that JPA maps and indexes without special handling.
 
 ## Key constraints and indexes
 

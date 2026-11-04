@@ -22,10 +22,13 @@ public abstract class PostgresIntegrationTest {
     protected static final String APP_PASSWORD = "app-test-password";
     protected static final String MIGRATOR_USER = "flowpilot_migrator";
     protected static final String MIGRATOR_PASSWORD = "migrator-test-password";
+    /** base64("test-secret-for-flowpilot-integration-tests"), 43 bytes: long enough for HS256. */
+    protected static final String JWT_SECRET = "dGVzdC1zZWNyZXQtZm9yLWZsb3dwaWxvdC1pbnRlZ3JhdGlvbi10ZXN0cw==";
 
     private static final DockerImageName IMAGE =
             DockerImageName.parse("pgvector/pgvector:pg17").asCompatibleSubstituteFor("postgres");
 
+    @SuppressWarnings("resource") // one container for the whole test JVM; Testcontainers stops it at exit
     protected static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(IMAGE)
             .withDatabaseName("flowpilot")
             .withEnv("FLOWPILOT_DB_MIGRATOR_PASSWORD", MIGRATOR_PASSWORD)
@@ -46,5 +49,6 @@ public abstract class PostgresIntegrationTest {
         registry.add("spring.flyway.enabled", () -> true);
         registry.add("spring.flyway.user", () -> MIGRATOR_USER);
         registry.add("spring.flyway.password", () -> MIGRATOR_PASSWORD);
+        registry.add("flowpilot.security.jwt.secret", () -> JWT_SECRET);
     }
 }

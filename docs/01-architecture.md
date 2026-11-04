@@ -16,7 +16,7 @@ These versions were checked against Maven Central on 2026-10-15. Re-verify them 
 | LLM provider | **Ollama** (local, free): chat `qwen3:4b`, embeddings `nomic-embed-text` (768-dim) | Costs nothing, has no API key or rate limits, works offline, and data stays on the machine. Both models fit a 4 GB GPU. The provider can be swapped through configuration (see §7). |
 | Module boundaries | **Spring Modulith** (version from its BOM, aligned to Boot 4.1) | Verifies module dependencies in a unit test and provides a transactional event-publication registry (outbox). It is not a Spring Cloud component. |
 | Resilience | Spring Framework 7 `@Retryable` / `@ConcurrencyLimit` + **Resilience4j** circuit breaker | No Spring Cloud. Check Resilience4j's Boot 4 starter compatibility in Phase 3. If it is not ready, fall back to the core Resilience4j library with manual configuration. |
-| Rate limiting | **Bucket4j** with the PostgreSQL proxy manager | A limit shared across replicas without adding Redis. |
+| Rate limiting | Login: a fixed-window failure counter table in PostgreSQL (`login_attempt`). AI quotas: **Bucket4j** with the PostgreSQL proxy manager. | Limits shared across replicas without adding Redis. Failed logins are a count over a window, so a plain table is simpler than a token bucket. |
 | Scheduled-job locking | **ShedLock** (JDBC) | Ensures a scheduled job runs on exactly one replica. |
 | DB | PostgreSQL 17 + **pgvector**, Flyway | |
 | PDF | Apache PDFBox 3.x | Extracts text page by page, so citations can include page numbers. |
