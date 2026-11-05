@@ -1,0 +1,9 @@
+# ChefProjet: Soufiane, project lead of FlowPilot AI.
+#
+# GitHub requires this exact file name (CODEOWNERS); any other name is ignored.
+# With the "Require review from Code Owners" rule on main, every pull request
+# needs the ChefProjet's approval before it can be merged.
+#
+# Format: <file pattern> <GitHub username>. "*" means every file in the repository.
+
+* @SoufianeAmm
