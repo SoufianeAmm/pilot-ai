@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, Outlet } from 'react-router'
 import { Button } from '../components/form'
 import { useAuth } from '../features/auth/authContext'
+import { OrgSwitcher } from '../features/orgs/OrgSwitcher'
 
 export function AppLayout() {
   return (
@@ -37,7 +38,8 @@ function AccountMenu() {
 
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <div className="min-w-0 text-right">
+      <OrgSwitcher />
+      <div className="hidden min-w-0 text-right sm:block">
         <p className="truncate text-sm font-medium">{state.user.displayName}</p>
         <p className="truncate text-xs text-slate-500">{state.user.email}</p>
       </div>

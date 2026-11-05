@@ -10,7 +10,8 @@ import { AuthProvider } from './AuthProvider'
 
 const USER = { id: 'u1', email: 'soufiane@example.com', displayName: 'Soufiane' }
 const TOKENS = { accessToken: 'access-1', expiresIn: 900, tokenType: 'Bearer' }
-const META = { 'GET /meta': () => json({ name: 'flowpilot', version: '0.1.0', instance: 'test' }) }
+// A new user has no organization yet, so "/" shows the onboarding page ("Welcome, <name>").
+const META = { 'GET /orgs': () => json([]) }
 const NO_SESSION = { 'POST /auth/refresh': () => problem(401, 'Your session has expired.') }
 
 function renderApp(path = '/') {
@@ -159,9 +160,8 @@ describe('authentication flow', () => {
     mockApi({
       'POST /auth/refresh': () => (++refreshes === 1 ? json(TOKENS) : problem(401, 'Your session has expired.')),
       'GET /me': () => json(USER),
-      'GET /meta': () => problem(401, 'expired'),
+      'GET /orgs': () => problem(401, 'expired'),
     })
-    // /meta is public in reality; here it stands in for any API call made with an expired token.
 
     renderApp('/')
 
