@@ -18,6 +18,9 @@ public final class AuditActions {
     public static final String ACCESS_DENIED = "access.denied";
     public static final String AI_TOOL_DENIED = "ai.tool.denied";
 
+    public static final String DOCUMENT_UPLOADED = "document.uploaded";
+    public static final String DOCUMENT_DELETED = "document.deleted";
+
     private AuditActions() {
     }
 }
