@@ -26,6 +26,9 @@ import com.flowpilot.shared.id.Ids;
 import com.flowpilot.shared.web.ApiException;
 import com.flowpilot.shared.web.ProblemTypes;
 
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 @Service
 public class DocumentService {
 
@@ -84,6 +87,31 @@ public class DocumentService {
         return documents.findByIdAndProjectIdAndDeletedAtIsNull(documentId, projectId)
                 .orElseThrow(() -> ApiException.notFound("Document not found."));
     }
+
+    public InputStream openContent(Document document) {
+        try {
+            return storage.open(document.getStorageKey());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Transactional
+    public Document delete(UUID projectId, UUID documentId) {
+        Document document = documents.findByIdAndProjectIdAndDeletedAtIsNull(documentId, projectId)
+                .orElseThrow(() -> ApiException.notFound("Document not found."));
+        document.softDelete(clock.instant());
+        String storageKey = document.getStorageKey();
+        // remove the file only once the database change is committed
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                deleteQuietly(storageKey);
+            }
+        });
+        return document;
+    }
+
 
     private StoredFile store(String storageKey, InputStream content) {
         try {

@@ -28,6 +28,14 @@ import com.flowpilot.documents.internal.application.DocumentService;
 import com.flowpilot.documents.internal.domain.Document;
 import com.flowpilot.shared.security.AuthenticatedUser;
 
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
+
 @RestController
 @RequestMapping("/api/v1/orgs/{orgId}/projects/{projectId}/documents")
 class DocumentController {
@@ -83,5 +91,38 @@ class DocumentController {
                          @AuthenticationPrincipal AuthenticatedUser user) {
         access.requireRead(user.userId(), orgId, projectId);
         return DocumentResponse.from(documents.get(projectId, documentId));
+    }
+
+    @GetMapping("/{documentId}/content")
+    ResponseEntity<StreamingResponseBody> content(@PathVariable UUID orgId,
+                                                  @PathVariable UUID projectId,
+                                                  @PathVariable UUID documentId,
+                                                  @AuthenticationPrincipal AuthenticatedUser user) {
+        access.requireRead(user.userId(), orgId, projectId);
+        Document document = documents.get(projectId, documentId);
+        StreamingResponseBody body = out -> {
+            try (InputStream in = documents.openContent(document)) {
+                in.transferTo(out);
+            }
+        };
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .contentLength(document.getSizeBytes())
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline()
+                        .filename(document.getFilename(), StandardCharsets.UTF_8).build().toString())
+                .body(body);
+    }
+
+    @DeleteMapping("/{documentId}")
+    ResponseEntity<Void> delete(@PathVariable UUID orgId,
+                                @PathVariable UUID projectId,
+                                @PathVariable UUID documentId,
+                                @AuthenticationPrincipal AuthenticatedUser user) {
+        access.requireWrite(user.userId(), orgId, projectId);
+        Document document = documents.delete(projectId, documentId);
+        audit.record(AuditEvent.success(AuditActions.DOCUMENT_DELETED, orgId, user.userId())
+                .withTarget("document", document.getId())
+                .withDetail("projectId", projectId.toString()));
+        return ResponseEntity.noContent().build();
     }
 }
