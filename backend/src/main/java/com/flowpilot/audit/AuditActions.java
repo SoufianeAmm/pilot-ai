@@ -20,6 +20,15 @@ public final class AuditActions {
     public static final String ACCESS_DENIED = "access.denied";
     public static final String AI_TOOL_DENIED = "ai.tool.denied";
 
+    public static final String PROJECT_CREATED = "project.created";
+    public static final String PROJECT_UPDATED = "project.updated";
+    public static final String PROJECT_ARCHIVED = "project.archived";
+    public static final String PROJECT_MEMBER_ADDED = "project.member.added";
+    public static final String PROJECT_MEMBER_REMOVED = "project.member.removed";
+    public static final String PROJECT_MEMBER_ROLE_CHANGED = "project.member.role_changed";
+    public static final String MILESTONE_CREATED = "project.milestone.created";
+    public static final String MILESTONE_COMPLETED = "project.milestone.completed";
+
     private AuditActions() {
     }
 }

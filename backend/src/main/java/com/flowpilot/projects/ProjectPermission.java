@@ -15,6 +15,8 @@ public enum ProjectPermission {
     MEMBER_MANAGE,
     MILESTONE_MANAGE,
     TASK_CREATE,
+    /** Edit task fields (title, description, status, priority, dates, assignee, milestone). */
+    TASK_EDIT,
     /** Edit, reassign, close or delete <em>any</em> task in the project (manager only). */
     TASK_MANAGE_ANY,
     COMMENT_WRITE,
