@@ -32,6 +32,16 @@ public final class TestHttp {
         return send(request(path, headers).POST(HttpRequest.BodyPublishers.noBody()));
     }
 
+    /** Any method, e.g. PATCH or DELETE; {@code json} may be null for no body. */
+    public HttpResponse<String> send(String method, String path, String json, String... headers) {
+        HttpRequest.Builder builder = request(path, headers);
+        if (json == null) {
+            return send(builder.method(method, HttpRequest.BodyPublishers.noBody()));
+        }
+        return send(builder.header("Content-Type", "application/json")
+                .method(method, HttpRequest.BodyPublishers.ofString(json)));
+    }
+
     /** The full Set-Cookie header for the named cookie, e.g. "fp_refresh=...; Path=/api/v1/auth; HttpOnly". */
     public static Optional<String> setCookie(HttpResponse<?> response, String name) {
         return response.headers().allValues("Set-Cookie").stream()

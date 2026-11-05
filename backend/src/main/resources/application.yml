@@ -16,6 +16,10 @@ spring:
       minimum-idle: 2
       connection-timeout: 3000
       max-lifetime: 1800000
+  data:
+    web:
+      pageable:
+        max-page-size: 100     # clients cannot request huge pages
   jpa:
     open-in-view: false        # never hold a DB connection for the whole HTTP request
     hibernate:
@@ -70,6 +74,11 @@ flowpilot:
       max-failures: 5          # per account + IP
       max-failures-per-ip: 30  # all accounts, against password spraying
       window: 15m
+
+  organizations:
+    invitation-ttl: 7d
+    # frontend page that reads ?token= and calls POST /api/v1/invitations/accept
+    accept-url: ${FLOWPILOT_INVITATION_ACCEPT_URL:http://localhost:5173/invitations/accept}
 
 springdoc:
   api-docs:
