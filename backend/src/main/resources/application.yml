@@ -3,6 +3,10 @@
 spring:
   application:
     name: flowpilot
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 21MB
   autoconfigure:
     # users come from our own database; no generated in-memory user
     exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
@@ -70,6 +74,9 @@ flowpilot:
       max-failures: 5          # per account + IP
       max-failures-per-ip: 30  # all accounts, against password spraying
       window: 15m
+  documents:
+    storage-path: ${FLOWPILOT_DOCUMENTS_PATH:./data/documents}
+    max-file-size: 20MB
 
 springdoc:
   api-docs:
