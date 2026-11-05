@@ -66,9 +66,8 @@ class MilestoneController {
                              @AuthenticationPrincipal AuthenticatedUser user) {
         var scope = projectAccess.requirePermission(orgId, projectId, user.userId(),
                 ProjectPermission.MILESTONE_MANAGE);
-        // name/dueDate update would reuse the optimistic-lock version; for now complete/reopen cover
-        // the common transitions. A fuller update can be added without changing the contract shape.
-        return MilestoneResponse.from(milestones.get(scope, milestoneId));
+        return MilestoneResponse.from(milestones.update(scope, milestoneId, request.name(), request.dueDate(),
+                request.version()));
     }
 
     @PostMapping("/{milestoneId}/complete")

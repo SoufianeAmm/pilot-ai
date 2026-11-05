@@ -27,7 +27,7 @@ class ProjectRoleTest {
     }
 
     @Test
-    void contributor_can_create_and_edit_tasks_upload_and_ask_ai_but_cannot_comment_or_manage_the_project() {
+    void contributor_can_create_and_edit_tasks_comment_upload_and_ask_ai_but_cannot_manage_the_project() {
         ProjectRole contributor = ProjectRole.CONTRIBUTOR;
 
         assertThat(contributor.has(ProjectPermission.PROJECT_READ)).isTrue();
@@ -37,8 +37,10 @@ class ProjectRoleTest {
         assertThat(contributor.has(ProjectPermission.AI_ASK)).isTrue();
         assertThat(contributor.has(ProjectPermission.ANALYTICS_VIEW)).isTrue();
 
-        // contributors do not comment (manager-only) and cannot manage project-wide concerns
-        assertThat(contributor.has(ProjectPermission.COMMENT_WRITE)).isFalse();
+        // docs/01-architecture.md section 6: contributors create/edit tasks and comment
+        assertThat(contributor.has(ProjectPermission.COMMENT_WRITE)).isTrue();
+
+        // project-wide management stays manager-only
         assertThat(contributor.has(ProjectPermission.MEMBER_MANAGE)).isFalse();
         assertThat(contributor.has(ProjectPermission.MILESTONE_MANAGE)).isFalse();
         assertThat(contributor.has(ProjectPermission.PROJECT_UPDATE)).isFalse();

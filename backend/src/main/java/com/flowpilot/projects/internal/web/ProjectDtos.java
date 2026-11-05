@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -90,7 +91,7 @@ final class ProjectDtos {
     record AddMemberRequest(
             @NotNull UUID userId,
             @NotNull ProjectRole role,
-            @PositiveOrZero @Size(max = 100) Integer weeklyCapacityPoints) {
+            @PositiveOrZero @Max(100) Integer weeklyCapacityPoints) {
     }
 
     record ChangeMemberRoleRequest(@NotNull ProjectRole role, @NotNull Long version) {

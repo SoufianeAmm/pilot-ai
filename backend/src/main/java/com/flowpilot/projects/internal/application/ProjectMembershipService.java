@@ -8,6 +8,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -63,9 +64,17 @@ public class ProjectMembershipService {
         // The new member must already belong to the organization.
         MemberSummary orgMember = directory.findMember(scope.orgId(), userId)
                 .orElseThrow(() -> ApiException.conflict("The user is not a member of the organization."));
+        if (members.findByProjectIdAndUserId(scope.projectId(), userId).isPresent()) {
+            throw alreadyMember();
+        }
         ProjectMember member = new ProjectMember(scope.projectId(), orgMember.userId(), scope.orgId(), role,
                 weeklyCapacityPoints, clock.instant());
-        members.saveAndFlush(member);
+        try {
+            members.saveAndFlush(member);
+        } catch (DataIntegrityViolationException ex) {
+            // Only reachable when the same user is added twice at the same moment.
+            throw alreadyMember();
+        }
         audit.record(AuditEvent.success(AuditActions.PROJECT_MEMBER_ADDED, scope.orgId(), scope.userId())
                 .withTarget("project_member", userId)
                 .withDetail("role", role.name()));
@@ -117,6 +126,10 @@ public class ProjectMembershipService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onOrganizationMemberRemoved(MemberRemovedEvent event) {
         members.deleteByOrgIdAndUserId(event.orgId(), event.userId());
+    }
+
+    private static ApiException alreadyMember() {
+        return ApiException.conflict("The user is already a member of this project.");
     }
 
     private ProjectMember load(ProjectScope scope, UUID userId) {
