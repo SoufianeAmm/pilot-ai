@@ -10,6 +10,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Max;
 
 import com.flowpilot.projects.ProjectRole;
 import com.flowpilot.projects.internal.application.ProjectMemberView;
