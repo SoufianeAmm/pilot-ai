@@ -13,6 +13,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.flowpilot.projects.internal.domain.Project;
+import com.flowpilot.projects.internal.domain.ProjectStatus;
 
 /**
  * Project data access. Lookups are always scoped by {@code orgId} so a tenant can never read another
@@ -25,11 +26,28 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
 
     boolean existsByOrgIdAndKey(UUID orgId, String key);
 
-    /** All projects of an organization, paginated (the project list endpoint). */
+    /** Projects of an organization that the user is an explicit member of (project list for non-admins). */
+    @Query("""
+            select p from Project p
+            where p.orgId = :orgId
+              and exists (select 1 from ProjectMember m where m.projectId = p.id and m.userId = :userId)
+            """)
+    Page<Project> findAllByOrgIdForMember(@Param("orgId") UUID orgId, @Param("userId") UUID userId,
+                                          Pageable pageable);
+
+    @Query("""
+            select p from Project p
+            where p.orgId = :orgId and p.status = :status
+              and exists (select 1 from ProjectMember m where m.projectId = p.id and m.userId = :userId)
+            """)
+    Page<Project> findAllByOrgIdAndStatusForMember(@Param("orgId") UUID orgId, @Param("userId") UUID userId,
+                                                   @Param("status") ProjectStatus status, Pageable pageable);
+
+    /** All projects of an organization, paginated (the project list for org OWNER/ADMIN). */
     Page<Project> findAllByOrgId(UUID orgId, Pageable pageable);
 
     Page<Project> findAllByOrgIdAndStatus(UUID orgId,
-                                          com.flowpilot.projects.internal.domain.ProjectStatus status,
+                                          ProjectStatus status,
                                           Pageable pageable);
 
     /**

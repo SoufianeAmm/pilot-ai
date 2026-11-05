@@ -25,6 +25,11 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.NOT_FOUND, ProblemTypes.NOT_FOUND, "Resource not found", detail);
     }
 
+    /** 400 for a request that is well-formed but breaks a business rule (e.g. end date before start date). */
+    public static ApiException badRequest(String detail) {
+        return new ApiException(HttpStatus.BAD_REQUEST, ProblemTypes.VALIDATION, "Validation failed", detail);
+    }
+
     public static ApiException conflict(String detail) {
         return new ApiException(HttpStatus.CONFLICT, ProblemTypes.CONFLICT, "Conflict", detail);
     }

@@ -2,6 +2,7 @@ package com.flowpilot.projects;
 
 import static com.flowpilot.projects.ProjectPermission.AI_ASK;
 import static com.flowpilot.projects.ProjectPermission.ANALYTICS_VIEW;
+import static com.flowpilot.projects.ProjectPermission.COMMENT_WRITE;
 import static com.flowpilot.projects.ProjectPermission.DOCUMENT_MANAGE_ANY;
 import static com.flowpilot.projects.ProjectPermission.DOCUMENT_UPLOAD;
 import static com.flowpilot.projects.ProjectPermission.MEMBER_MANAGE;
@@ -28,7 +29,7 @@ public enum ProjectRole {
 
     MANAGER(2, EnumSet.allOf(ProjectPermission.class)),
     CONTRIBUTOR(1, EnumSet.of(
-            PROJECT_READ, TASK_CREATE, TASK_EDIT, DOCUMENT_UPLOAD, AI_ASK, ANALYTICS_VIEW)),
+            PROJECT_READ, TASK_CREATE, TASK_EDIT, COMMENT_WRITE, DOCUMENT_UPLOAD, AI_ASK, ANALYTICS_VIEW)),
     VIEWER(0, EnumSet.of(
             PROJECT_READ, AI_ASK, ANALYTICS_VIEW));
 

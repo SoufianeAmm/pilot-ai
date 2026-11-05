@@ -72,6 +72,16 @@ public class Milestone {
         this.status = MilestoneStatus.OPEN;
     }
 
+    /** Null arguments leave the field unchanged. */
+    public void update(String name, LocalDate dueDate) {
+        if (name != null) {
+            this.name = name;
+        }
+        if (dueDate != null) {
+            this.dueDate = dueDate;
+        }
+    }
+
     public UUID getId() {
         return id;
     }

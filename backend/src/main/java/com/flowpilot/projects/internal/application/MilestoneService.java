@@ -76,6 +76,18 @@ public class MilestoneService {
     }
 
     @Transactional
+    public Milestone update(ProjectScope scope, UUID milestoneId, String name, LocalDate dueDate,
+                            long expectedVersion) {
+        Milestone milestone = load(scope, milestoneId);
+        if (!Objects.equals(milestone.getVersion(), expectedVersion)) {
+            throw ApiException.conflict("The milestone was changed by someone else. Reload and try again.");
+        }
+        milestone.update(name, dueDate);
+        milestones.flush();
+        return milestone;
+    }
+
+    @Transactional
     public Milestone complete(ProjectScope scope, UUID milestoneId, long expectedVersion) {
         Milestone milestone = load(scope, milestoneId);
         if (!Objects.equals(milestone.getVersion(), expectedVersion)) {
@@ -102,7 +114,7 @@ public class MilestoneService {
     }
 
     private Milestone load(ProjectScope scope, UUID milestoneId) {
-        return milestones.findByIdAndOrgId(milestoneId, scope.orgId())
+        return milestones.findByIdAndProjectIdAndOrgId(milestoneId, scope.projectId(), scope.orgId())
                 .orElseThrow(() -> ApiException.notFound("Milestone not found."));
     }
 }
