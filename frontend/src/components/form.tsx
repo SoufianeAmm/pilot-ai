@@ -1,4 +1,40 @@
-import { useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react'
+import {
+  useId,
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type SelectHTMLAttributes,
+} from 'react'
+
+interface SelectFieldProps extends SelectHTMLAttributes<HTMLSelectElement> {
+  label: string
+  /** Visually hide the label (it is still read by screen readers), e.g. inside a table row. */
+  hideLabel?: boolean
+  options: { value: string; label: string }[]
+}
+
+export function SelectField({ label, hideLabel = false, options, id, className, ...select }: SelectFieldProps) {
+  const generatedId = useId()
+  const selectId = id ?? generatedId
+  return (
+    <div className={className}>
+      <label htmlFor={selectId} className={hideLabel ? 'sr-only' : 'block text-sm font-medium text-slate-700'}>
+        {label}
+      </label>
+      <select
+        id={selectId}
+        className={`${hideLabel ? '' : 'mt-1 '}block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:bg-slate-50 disabled:text-slate-500`}
+        {...select}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
 
 interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string
@@ -39,20 +75,31 @@ export function TextField({ label, error, hint, id, className, ...input }: TextF
 }
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary'
+  variant?: 'primary' | 'secondary' | 'danger'
+}
+
+const BUTTON_LOOKS = {
+  primary: 'bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-indigo-300',
+  secondary: 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:text-slate-400',
+  danger: 'border border-red-200 bg-white text-red-700 hover:bg-red-50 disabled:text-red-300',
 }
 
 export function Button({ variant = 'primary', className = '', type = 'button', ...button }: ButtonProps) {
-  const look =
-    variant === 'primary'
-      ? 'bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-indigo-300'
-      : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:text-slate-400'
+  const look = BUTTON_LOOKS[variant]
   return (
     <button
       type={type}
       className={`inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 disabled:cursor-not-allowed ${look} ${className}`}
       {...button}
     />
+  )
+}
+
+export function SuccessNote({ children }: { children: ReactNode }) {
+  return (
+    <div role="status" className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+      {children}
+    </div>
   )
 }
 
