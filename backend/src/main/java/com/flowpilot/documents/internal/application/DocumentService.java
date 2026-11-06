@@ -15,19 +15,19 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.flowpilot.documents.internal.DocumentProperties;
 import com.flowpilot.documents.internal.domain.Document;
 import com.flowpilot.documents.internal.persistence.DocumentRepository;
+import com.flowpilot.documents.internal.persistence.IngestionJobQueue;
 import com.flowpilot.documents.internal.storage.DocumentStorage;
 import com.flowpilot.documents.internal.storage.FileTooLargeException;
 import com.flowpilot.documents.internal.storage.StoredFile;
 import com.flowpilot.shared.id.Ids;
 import com.flowpilot.shared.web.ApiException;
 import com.flowpilot.shared.web.ProblemTypes;
-
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class DocumentService {
@@ -40,13 +40,15 @@ public class DocumentService {
     private final DocumentStorage storage;
     private final DocumentProperties properties;
     private final Clock clock;
+    private final IngestionJobQueue jobs;
 
     DocumentService(DocumentRepository documents, DocumentStorage storage,
-                    DocumentProperties properties, Clock clock) {
+                    DocumentProperties properties, Clock clock, IngestionJobQueue jobs) {
         this.documents = documents;
         this.storage = storage;
         this.properties = properties;
         this.clock = clock;
+        this.jobs = jobs;
     }
 
     @Transactional
@@ -66,7 +68,9 @@ public class DocumentService {
             }
             Document document = new Document(id, orgId, projectId, filename, PDF_CONTENT_TYPE,
                     stored.sizeBytes(), stored.sha256(), storageKey, uploadedBy, clock.instant());
-            return documents.saveAndFlush(document);
+            Document saved = documents.saveAndFlush(document);
+            jobs.enqueue(saved.getId());   // same transaction as the document row
+            return saved;
         } catch (DataIntegrityViolationException e) {
             // two identical uploads raced: the unique index on (project_id, sha256) caught the second
             deleteQuietly(storageKey);
@@ -111,7 +115,6 @@ public class DocumentService {
         });
         return document;
     }
-
 
     private StoredFile store(String storageKey, InputStream content) {
         try {

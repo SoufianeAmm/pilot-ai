@@ -22,6 +22,7 @@
         <spring-modulith.version>2.1.2</spring-modulith.version>
         <springdoc.version>3.2.0</springdoc.version>
         <bouncycastle.version>1.86</bouncycastle.version>
+        <pdfbox.version>3.0.5</pdfbox.version>
     </properties>
 
     <dependencyManagement>
@@ -78,6 +79,14 @@
             <artifactId>bcprov-jdk18on</artifactId>
             <version>${bouncycastle.version}</version>
         </dependency>
+
+                <!-- PDF text extraction (Knowledge Hub) -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>${pdfbox.version}</version>
+        </dependency>
+        
 
         <!-- Operations -->
         <dependency>

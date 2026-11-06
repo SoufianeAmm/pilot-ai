@@ -17,6 +17,7 @@ x-app-environment: &app-environment
   FLOWPILOT_ALLOWED_ORIGINS: ${FLOWPILOT_ALLOWED_ORIGINS:-http://localhost:5173}
   FLOWPILOT_DOCUMENTS_PATH: /data/documents   # NEW
   LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+  FLOWPILOT_OLLAMA_URL: ${FLOWPILOT_OLLAMA_URL:-http://host.docker.internal:11434}
 
 services:
   db:
