@@ -29,6 +29,12 @@ public final class AuditActions {
     public static final String MILESTONE_CREATED = "project.milestone.created";
     public static final String MILESTONE_COMPLETED = "project.milestone.completed";
 
+    public static final String TASK_CREATED = "task.created";
+    public static final String TASK_UPDATED = "task.updated";
+    public static final String TASK_DELETED = "task.deleted";
+    public static final String TASK_DEPENDENCY_ADDED = "task.dependency.added";
+    public static final String TASK_DEPENDENCY_REMOVED = "task.dependency.removed";
+
     private AuditActions() {
     }
 }
