@@ -81,7 +81,7 @@ flowpilot:
     ollama:
       base-url: ${FLOWPILOT_OLLAMA_URL:http://localhost:11434}
       embedding-model: ${FLOWPILOT_EMBEDDING_MODEL:nomic-embed-text}
-      chat-model: ${FLOWPILOT_CHAT_MODEL:qwen3:4b}
+      chat-model: ${FLOWPILOT_CHAT_MODEL:qwen3:4b-instruct}
 
 springdoc:
   api-docs:
