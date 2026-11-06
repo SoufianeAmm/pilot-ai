@@ -8,16 +8,14 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.flowpilot.documents.KnowledgeApi;
+import com.flowpilot.documents.KnowledgePassage;
+
 /** Semantic search over the passages of one project. Every result carries its source (document + pages). */
 @Component
-public class KnowledgeSearch {
+public class KnowledgeSearch implements KnowledgeApi {
 
     public static final int MAX_RESULTS = 20;
-
-    /** A passage found by the search, with what is needed to cite it. */
-    public record Passage(UUID chunkId, UUID documentId, String filename, int chunkIndex,
-                          Integer pageFrom, Integer pageTo, String content, double score) {
-    }
 
     private final EmbeddingClient embeddings;
     private final JdbcClient jdbc;
@@ -27,8 +25,9 @@ public class KnowledgeSearch {
         this.jdbc = jdbc;
     }
 
+    @Override
     @Transactional(readOnly = true)
-    public List<Passage> search(UUID projectId, String question, int limit) {
+    public List<KnowledgePassage> search(UUID projectId, String question, int limit) {
         int top = Math.max(1, Math.min(limit, MAX_RESULTS));
         String vector = toVectorLiteral(embeddings.embed(List.of(question)).get(0));
 
@@ -47,7 +46,7 @@ public class KnowledgeSearch {
                 .param("query", vector)
                 .param("projectId", projectId)
                 .param("limit", top)
-                .query((rs, rowNum) -> new Passage(
+                .query((rs, rowNum) -> new KnowledgePassage(
                         rs.getObject("id", UUID.class),
                         rs.getObject("document_id", UUID.class),
                         rs.getString("filename"),
