@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.flowpilot.audit.AuditActions;
 import com.flowpilot.audit.AuditEvent;
 import com.flowpilot.audit.AuditTrail;
+import com.flowpilot.projects.ProjectAccess;
 import com.flowpilot.projects.ProjectQueries;
 import com.flowpilot.projects.ProjectScope;
 import com.flowpilot.shared.id.Ids;
@@ -33,6 +34,10 @@ import com.flowpilot.tasks.internal.persistence.TaskRepository;
  * Task create/read/update/delete. The per-project number (the "n" in "FP-42") is reserved through
  * {@link ProjectQueries#reserveNextTaskNumber}, which row-locks the project so concurrent creates
  * never collide. {@code blocked} and {@code overdue} are derived per read, never stored.
+ *
+ * <p>Lookups are scoped by {@code projectId} <em>and</em> {@code orgId}: a member of one project
+ * cannot access a task of another project in the same organization. Assignees are validated to be
+ * project members; milestones are validated to belong to the task's project.
  */
 @Service
 public class TaskService {
@@ -41,14 +46,16 @@ public class TaskService {
 
     private final TaskRepository tasks;
     private final ProjectQueries projectQueries;
+    private final ProjectAccess projectAccess;
     private final AuditTrail audit;
     private final ApplicationEventPublisher events;
     private final Clock clock;
 
-    public TaskService(TaskRepository tasks, ProjectQueries projectQueries, AuditTrail audit,
-                       ApplicationEventPublisher events, Clock clock) {
+    public TaskService(TaskRepository tasks, ProjectQueries projectQueries, ProjectAccess projectAccess,
+                       AuditTrail audit, ApplicationEventPublisher events, Clock clock) {
         this.tasks = tasks;
         this.projectQueries = projectQueries;
+        this.projectAccess = projectAccess;
         this.audit = audit;
         this.events = events;
         this.clock = clock;
@@ -57,6 +64,8 @@ public class TaskService {
     @Transactional
     public TaskView create(ProjectScope scope, String title, String description, TaskPriority priority,
                            UUID assigneeId, UUID milestoneId, LocalDate dueDate, Integer estimatePoints) {
+        validateAssignee(scope, assigneeId);
+        validateMilestone(scope, milestoneId);
         int number = projectQueries.reserveNextTaskNumber(scope.orgId(), scope.projectId());
         Task task = new Task(Ids.newId(), scope.orgId(), scope.projectId(), number, title, description,
                 priority == null ? TaskPriority.MEDIUM : priority, scope.userId(), assigneeId, milestoneId,
@@ -64,21 +73,21 @@ public class TaskService {
         try {
             tasks.saveAndFlush(task);
         } catch (DataIntegrityViolationException ex) {
-            // uq_task_project_number should not happen (the row lock serializes numbering), but defend.
             throw ApiException.conflict("The task could not be created due to a conflict.");
         }
         audit.record(AuditEvent.success(AuditActions.TASK_CREATED, scope.orgId(), scope.userId())
                 .withTarget("task", task.getId()));
         events.publishEvent(new TaskCreatedEvent(scope.orgId(), scope.projectId(), task.getId(),
                 task.getNumber(), scope.userId()));
-        return viewOf(scope, task, Set.of());
+        String key = projectQueries.keyOf(scope.orgId(), scope.projectId()) + "-" + task.getNumber();
+        return new TaskView(task, key, false, isOverdue(task));
     }
 
     @Transactional(readOnly = true)
     public TaskView get(ProjectScope scope, UUID taskId) {
         Task task = load(scope, taskId);
-        Set<UUID> blocked = tasks.findBlockedTaskIds(List.of(taskId), TERMINAL);
-        return viewOf(scope, task, blocked);
+        String key = projectQueries.keyOf(scope.orgId(), scope.projectId()) + "-" + task.getNumber();
+        return new TaskView(task, key, isBlocked(scope, task), isOverdue(task));
     }
 
     @Transactional(readOnly = true)
@@ -89,24 +98,42 @@ public class TaskService {
         Set<UUID> blockedIds = page.isEmpty()
                 ? Set.of()
                 : tasks.findBlockedTaskIds(page.map(Task::getId).toList(), TERMINAL);
-        return page.map(t -> viewOf(scope, t, blockedIds));
+        String projectKey = projectQueries.keyOf(scope.orgId(), scope.projectId());
+        return page.map(t -> new TaskView(t, projectKey + "-" + t.getNumber(),
+                blockedIds.contains(t.getId()), isOverdue(t)));
     }
 
-    /** Update the editable fields (not status — use {@link #changeStatus}). */
     @Transactional
     public TaskView update(ProjectScope scope, UUID taskId, String title, String description,
                            TaskPriority priority, UUID assigneeId, UUID milestoneId, LocalDate dueDate,
-                           Integer estimatePoints, long expectedVersion) {
+                           Integer estimatePoints, boolean clearAssignee, boolean clearMilestone,
+                           boolean clearDueDate, long expectedVersion) {
         Task task = load(scope, taskId);
         if (!Objects.equals(task.getVersion(), expectedVersion)) {
             throw ApiException.conflict("The task was changed by someone else. Reload and try again.");
         }
+        if (!clearAssignee) {
+            validateAssignee(scope, assigneeId);
+        }
+        if (!clearMilestone) {
+            validateMilestone(scope, milestoneId);
+        }
         task.update(title, description, priority, assigneeId, milestoneId, dueDate, estimatePoints,
                 clock.instant());
+        if (clearAssignee) {
+            task.clearAssignee();
+        }
+        if (clearMilestone) {
+            task.clearMilestone();
+        }
+        if (clearDueDate) {
+            task.clearDueDate();
+        }
         tasks.flush();
         audit.record(AuditEvent.success(AuditActions.TASK_UPDATED, scope.orgId(), scope.userId())
                 .withTarget("task", taskId));
-        return viewOf(scope, task, tasks.findBlockedTaskIds(List.of(taskId), TERMINAL));
+        String key = projectQueries.keyOf(scope.orgId(), scope.projectId()) + "-" + task.getNumber();
+        return new TaskView(task, key, isBlocked(scope, task), isOverdue(task));
     }
 
     @Transactional
@@ -122,13 +149,10 @@ public class TaskService {
                 .withTarget("task", taskId).withDetail("status", newStatus.name()));
         events.publishEvent(new TaskStatusChangedEvent(scope.orgId(), scope.projectId(), taskId,
                 oldStatus.name(), newStatus.name(), scope.userId()));
-        return viewOf(scope, task, tasks.findBlockedTaskIds(List.of(taskId), TERMINAL));
+        String key = projectQueries.keyOf(scope.orgId(), scope.projectId()) + "-" + task.getNumber();
+        return new TaskView(task, key, isBlocked(scope, task), isOverdue(task));
     }
 
-    /**
-     * Soft-delete. A manager (TASK_MANAGE_ANY) may delete any task; a contributor may delete only
-     * tasks they reported.
-     */
     @Transactional
     public void delete(ProjectScope scope, UUID taskId) {
         Task task = load(scope, taskId);
@@ -145,16 +169,38 @@ public class TaskService {
     }
 
     private Task load(ProjectScope scope, UUID taskId) {
-        return tasks.findByIdAndOrgIdAndDeletedAtIsNull(taskId, scope.orgId())
+        return tasks.findByIdAndProjectIdAndOrgIdAndDeletedAtIsNull(taskId, scope.projectId(), scope.orgId())
                 .orElseThrow(() -> ApiException.notFound("Task not found."));
     }
 
-    private TaskView viewOf(ProjectScope scope, Task task, Set<UUID> blockedIds) {
-        String key = projectQueries.keyOf(scope.orgId(), scope.projectId()) + "-" + task.getNumber();
-        boolean blocked = !task.getStatus().isTerminal() && blockedIds.contains(task.getId());
-        boolean overdue = task.getDueDate() != null
+    private void validateAssignee(ProjectScope scope, UUID assigneeId) {
+        if (assigneeId == null) {
+            return;
+        }
+        if (projectAccess.findRole(scope.orgId(), scope.projectId(), assigneeId).isEmpty()) {
+            throw ApiException.badRequest("The assignee is not a member of the project.");
+        }
+    }
+
+    private void validateMilestone(ProjectScope scope, UUID milestoneId) {
+        if (milestoneId == null) {
+            return;
+        }
+        if (!projectQueries.milestoneExists(scope.orgId(), scope.projectId(), milestoneId)) {
+            throw ApiException.badRequest("The milestone does not belong to this project.");
+        }
+    }
+
+    private boolean isBlocked(ProjectScope scope, Task task) {
+        if (task.getStatus().isTerminal()) {
+            return false;
+        }
+        return tasks.findBlockedTaskIds(List.of(task.getId()), TERMINAL).contains(task.getId());
+    }
+
+    private boolean isOverdue(Task task) {
+        return task.getDueDate() != null
                 && !task.getStatus().isTerminal()
                 && task.getDueDate().isBefore(LocalDate.now(clock));
-        return new TaskView(task, key, blocked, overdue);
     }
 }

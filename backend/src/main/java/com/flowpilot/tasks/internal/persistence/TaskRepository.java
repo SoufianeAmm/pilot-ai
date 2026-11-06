@@ -15,15 +15,16 @@ import com.flowpilot.tasks.internal.domain.Task;
 import com.flowpilot.tasks.internal.domain.TaskStatus;
 
 /**
- * Task data access. Lookups are scoped by {@code orgId} and never return soft-deleted rows. The list
- * query takes nullable filters (status, assignee, milestone); a null filter means "do not filter on
- * this field". {@code findBlockedTaskIds} computes the derived "blocked" flag for a batch of tasks in
- * one query (no N+1).
+ * Task data access. Lookups are scoped by {@code projectId} <em>and</em> {@code orgId} (never orgId
+ * alone), so a member of one project cannot read or change a task of another project in the same
+ * organization. The list query takes nullable filters (status, assignee, milestone); a null filter
+ * means "do not filter on this field". {@code findBlockedTaskIds} computes the derived "blocked" flag
+ * for a batch of tasks in one query (no N+1) and ignores soft-deleted blockers.
  */
 public interface TaskRepository extends JpaRepository<Task, UUID> {
 
-    /** Tenant-scoped, non-deleted lookup. */
-    Optional<Task> findByIdAndOrgIdAndDeletedAtIsNull(UUID id, UUID orgId);
+    /** Project- and tenant-scoped, non-deleted lookup. Use this, not the org-only lookup. */
+    Optional<Task> findByIdAndProjectIdAndOrgIdAndDeletedAtIsNull(UUID id, UUID projectId, UUID orgId);
 
     /**
      * Paginated task list with optional filters. Each {@code :param is null or ...} clause is a
@@ -45,6 +46,7 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
      */
     @Query("select distinct d.taskId from TaskDependency d, Task dep "
             + "where dep.id = d.dependsOnTaskId and d.taskId in :taskIds "
+            + "and dep.deletedAt is null "
             + "and dep.status not in :terminalStatuses")
     Set<UUID> findBlockedTaskIds(@Param("taskIds") Collection<UUID> taskIds,
                                  @Param("terminalStatuses") Collection<TaskStatus> terminalStatuses);

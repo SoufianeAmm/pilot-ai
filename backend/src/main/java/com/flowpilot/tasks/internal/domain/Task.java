@@ -137,6 +137,19 @@ public class Task {
         this.updatedAt = now;
     }
 
+    /** Explicitly clear nullable fields (so PATCH can unassign / drop milestone / drop due date). */
+    public void clearAssignee() {
+        this.assigneeId = null;
+    }
+
+    public void clearMilestone() {
+        this.milestoneId = null;
+    }
+
+    public void clearDueDate() {
+        this.dueDate = null;
+    }
+
     /** Transition the status, maintaining the completed_at/started_at invariants. */
     public void changeStatus(TaskStatus newStatus, Instant now) {
         if (newStatus == this.status) {

@@ -88,7 +88,11 @@ class TaskController {
                 ProjectPermission.TASK_EDIT);
         return TaskResponse.from(taskService.update(scope, taskId, request.title(), request.description(),
                 request.priority(), request.assigneeId(), request.milestoneId(), request.dueDate(),
-                request.estimatePoints(), request.version()));
+                request.estimatePoints(),
+                Boolean.TRUE.equals(request.clearAssignee()),
+                Boolean.TRUE.equals(request.clearMilestone()),
+                Boolean.TRUE.equals(request.clearDueDate()),
+                request.version()));
     }
 
     @PostMapping("/{taskId}/status")
@@ -104,7 +108,8 @@ class TaskController {
     ResponseEntity<Void> delete(@PathVariable UUID orgId, @PathVariable UUID projectId,
                                 @PathVariable UUID taskId,
                                 @AuthenticationPrincipal AuthenticatedUser user) {
-        ProjectScope scope = projectAccess.requireMembership(orgId, projectId, user.userId());
+        ProjectScope scope = projectAccess.requirePermission(orgId, projectId, user.userId(),
+                ProjectPermission.TASK_EDIT);
         taskService.delete(scope, taskId);
         return ResponseEntity.noContent().build();
     }

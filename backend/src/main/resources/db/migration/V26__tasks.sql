@@ -38,8 +38,10 @@ CREATE TABLE task (
     version       bigint       NOT NULL,
     CONSTRAINT fk_task_project FOREIGN KEY (project_id, org_id)
         REFERENCES project (id, org_id) ON DELETE CASCADE,
-    CONSTRAINT fk_task_milestone FOREIGN KEY (milestone_id, org_id)
-        REFERENCES milestone (id, org_id) ON DELETE SET NULL,
+    -- single-column FK: ON DELETE SET NULL only nulls milestone_id (nullable), not org_id (NOT NULL).
+    -- A composite FK would null both columns and violate the NOT NULL org_id on milestone delete.
+    CONSTRAINT fk_task_milestone FOREIGN KEY (milestone_id)
+        REFERENCES milestone (id) ON DELETE SET NULL,
     CONSTRAINT uq_task_project_number UNIQUE (project_id, number),
     -- composite-FK target for task_dependency (task_id, org_id) -> task(id, org_id)
     CONSTRAINT uq_task_id_org UNIQUE (id, org_id),

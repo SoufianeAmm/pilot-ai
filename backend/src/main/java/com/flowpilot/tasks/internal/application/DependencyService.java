@@ -1,7 +1,6 @@
 package com.flowpilot.tasks.internal.application;
 
 import java.time.Clock;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -48,7 +47,7 @@ public class DependencyService {
     @Transactional
     public void add(ProjectScope scope, UUID taskId, UUID dependsOnTaskId) {
         if (taskId.equals(dependsOnTaskId)) {
-            throw ApiException.conflict("A task cannot depend on itself.");
+            throw ApiException.unprocessable("A task cannot depend on itself.");
         }
         // both tasks must exist in this project and not be deleted
         loadTask(scope, taskId);
@@ -63,7 +62,7 @@ public class DependencyService {
                         Collectors.mapping(TaskDependency::getDependsOnTaskId, Collectors.toList())));
         List<UUID> cycle = CycleDetector.findCycle(graph, taskId, dependsOnTaskId);
         if (!cycle.isEmpty()) {
-            throw ApiException.conflict("Adding this dependency would create a cycle: " + pathOf(cycle));
+            throw ApiException.unprocessable("Adding this dependency would create a cycle: " + pathOf(cycle));
         }
         dependencies.saveAndFlush(new TaskDependency(taskId, dependsOnTaskId, scope.orgId(),
                 scope.projectId(), clock.instant()));
@@ -86,7 +85,7 @@ public class DependencyService {
     }
 
     private void loadTask(ProjectScope scope, UUID taskId) {
-        if (tasks.findByIdAndOrgIdAndDeletedAtIsNull(taskId, scope.orgId()).isEmpty()) {
+        if (tasks.findByIdAndProjectIdAndOrgIdAndDeletedAtIsNull(taskId, scope.projectId(), scope.orgId()).isEmpty()) {
             throw ApiException.notFound("Task not found.");
         }
     }

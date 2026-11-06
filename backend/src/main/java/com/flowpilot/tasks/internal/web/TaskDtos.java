@@ -31,7 +31,11 @@ final class TaskDtos {
             @PositiveOrZero @Max(1000) Integer estimatePoints) {
     }
 
-    /** Null fields are left unchanged; version must match (optimistic locking). Status is not here. */
+    /**
+     * Null fields are left unchanged; {@code version} must match (optimistic locking). The
+     * {@code clear*} flags explicitly null the nullable fields, so a task can be unassigned or have
+     * its milestone / due date removed (null alone means "unchanged").
+     */
     record UpdateTaskRequest(
             @Size(min = 1, max = 200) String title,
             @Size(max = 5000) String description,
@@ -40,6 +44,9 @@ final class TaskDtos {
             UUID milestoneId,
             LocalDate dueDate,
             @PositiveOrZero @Max(1000) Integer estimatePoints,
+            Boolean clearAssignee,
+            Boolean clearMilestone,
+            Boolean clearDueDate,
             @NotNull Long version) {
     }
 

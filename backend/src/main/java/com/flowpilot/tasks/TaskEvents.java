@@ -4,8 +4,8 @@ import java.util.UUID;
 
 /**
  * Events published by the tasks module, listened to with {@code @EventListener} or
- * {@code @TransactionalEventListener}. Published within the transaction and stored by the Spring
- * Modulith event-publication registry (outbox), so a crash after commit does not lose them.
+ * {@code @TransactionalEventListener}. Published within the transaction via Spring's
+ * {@code ApplicationEventPublisher}.
  *
  * <p>Listeners: {@code collaboration} turns them into activity-feed entries; {@code notifications}
  * reacts to assignments; {@code analytics} may snapshot on status changes.

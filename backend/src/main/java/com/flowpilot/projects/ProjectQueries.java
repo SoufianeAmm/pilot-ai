@@ -21,4 +21,10 @@ public interface ProjectQueries {
 
     /** @return the project's human key (e.g. "FP"), for composing task keys. */
     String keyOf(UUID orgId, UUID projectId);
+
+    /**
+     * @return whether the milestone belongs to the given project (so a task in project A cannot use
+     *         a milestone from project B in the same organization)
+     */
+    boolean milestoneExists(UUID orgId, UUID projectId, UUID milestoneId);
 }

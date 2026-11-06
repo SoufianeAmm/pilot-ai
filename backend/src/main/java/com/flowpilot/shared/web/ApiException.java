@@ -42,6 +42,11 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.FORBIDDEN, ProblemTypes.FORBIDDEN, "Forbidden", detail);
     }
 
+    /** 422 for a request that is well-formed but semantically invalid (e.g. a dependency cycle). */
+    public static ApiException unprocessable(String detail) {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, ProblemTypes.VALIDATION, "Validation failed", detail);
+    }
+
     public HttpStatus status() {
         return status;
     }
