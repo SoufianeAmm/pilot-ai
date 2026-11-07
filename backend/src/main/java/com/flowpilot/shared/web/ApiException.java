@@ -25,6 +25,11 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.NOT_FOUND, ProblemTypes.NOT_FOUND, "Resource not found", detail);
     }
 
+    /** 400 for a request that is well-formed but breaks a business rule (e.g. end date before start date). */
+    public static ApiException badRequest(String detail) {
+        return new ApiException(HttpStatus.BAD_REQUEST, ProblemTypes.VALIDATION, "Validation failed", detail);
+    }
+
     public static ApiException conflict(String detail) {
         return new ApiException(HttpStatus.CONFLICT, ProblemTypes.CONFLICT, "Conflict", detail);
     }
@@ -35,6 +40,11 @@ public class ApiException extends RuntimeException {
 
     public static ApiException forbidden(String detail) {
         return new ApiException(HttpStatus.FORBIDDEN, ProblemTypes.FORBIDDEN, "Forbidden", detail);
+    }
+
+    /** 422 for a request that is well-formed but semantically invalid (e.g. a dependency cycle). */
+    public static ApiException unprocessable(String detail) {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, ProblemTypes.VALIDATION, "Validation failed", detail);
     }
 
     public HttpStatus status() {

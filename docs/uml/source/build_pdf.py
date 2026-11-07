@@ -400,7 +400,7 @@ def cd_org_api():
     policy = d.box("policy", "RolePolicy", right(impl, 60), yi, stereotype="service  (internal)",
                    methods=["+ canAssign(OrgRole actor, OrgRole currentTarget, OrgRole newRole): boolean",
                             "+ canRemove(OrgRole actor, OrgRole target): boolean",
-                            "+ ensureOwnerRemains(UUID orgId, UUID ownerLosingRole): void  (409)"])
+                            "+ ensureOwnerRemains(UUID orgId): void  (409, under org row lock)"])
     pa = d.box("pa", "ProjectAccess", right(policy, 60), yi, kind="interface", tone="friend",
                stereotype="interface  projects team",
                methods=["+ require(orgId, projectId, userId,", "      ProjectPermission): ProjectScope"])
@@ -437,7 +437,7 @@ def cd_org_internal():
                methods=["+ invite(UUID orgId, InviteRequest, AuthenticatedUser): InvitationResponse",
                         "+ listPending(UUID orgId, AuthenticatedUser): List<InvitationResponse>",
                         "+ revoke(UUID orgId, UUID invitationId, AuthenticatedUser): void",
-                        "+ accept(AcceptInvitationRequest, AuthenticatedUser): MemberResponse"])
+                        "+ accept(AcceptInvitationRequest, AuthenticatedUser): OrganizationResponse"])
     sx = right(mc, 60)
     os_ = d.box("os", "OrganizationService", sx, 0, stereotype="service",
                 methods=["+ create(String name, String slug, UUID ownerId): Organization",
@@ -449,7 +449,7 @@ def cd_org_internal():
                         "+ removeMember(OrgScope, UUID targetUserId): void"])
     is_ = d.box("is", "InvitationService", sx, below(ms, 26), stereotype="service",
                 methods=["+ invite(OrgScope, String email, OrgRole role): CreatedInvitation",
-                         "+ accept(String rawToken, UUID userId): MemberSummary",
+                         "+ accept(String rawToken, UUID userId): OrganizationWithRole",
                          "+ revoke(OrgScope, UUID invitationId): void", "+ listPending(OrgScope): List<Invitation>"])
     mailer = d.box("mailer", "InvitationMailer", right(is_, 40), is_.y, kind="interface",
                    methods=["+ send(String email, String orgName, URI acceptLink): void"])
@@ -512,7 +512,7 @@ def cd_audit():
                            "AUTH_LOGIN_FAILED = \"auth.login.failed\"",
                            "AUTH_LOGIN_RATE_LIMITED = \"auth.login.rate_limited\"",
                            "AUTH_REFRESH_REUSE_DETECTED = \"auth.refresh.reuse_detected\"",
-                           "ORG_CREATED = \"org.created\"", "MEMBER_INVITED = \"org.member.invited\"",
+                           "ORG_CREATED = \"org.created\"", "ORG_UPDATED = \"org.updated\"", "MEMBER_INVITED = \"org.member.invited\"", "INVITATION_REVOKED = \"org.invitation.revoked\"",
                            "MEMBER_JOINED = \"org.member.joined\"",
                            "MEMBER_ROLE_CHANGED = \"org.member.role_changed\"",
                            "MEMBER_REMOVED = \"org.member.removed\"", "ACCESS_DENIED = \"access.denied\"",
@@ -1027,8 +1027,8 @@ def sd_accept():
     s.self_msg("svc", "invitation.accept(now)")
     s.msg("svc", "events", "publish MemberJoinedEvent(orgId, userId, role)")
     s.msg("svc", "audit", "record(MEMBER_JOINED, SUCCESS)")
-    s.ret("svc", "ctrl", "MemberSummary")
-    s.ret("ctrl", "spa", "200 {MemberResponse}")
+    s.ret("svc", "ctrl", "OrganizationWithRole")
+    s.ret("ctrl", "spa", "200 {OrganizationResponse}  (the joined org and role)")
     s.note("events", "The notifications team listens to MemberJoinedEvent.")
     return s
 
@@ -1052,7 +1052,7 @@ def sd_change_role():
     s.msg("svc", "audit", "record(MEMBER_ROLE_CHANGED, DENIED)")
     s.ret("ctrl", "admin", "403")
     s.end()
-    s.msg("svc", "pol", "ensureOwnerRemains(orgId, targetUserId)  (when demoting an OWNER)")
+    s.msg("svc", "pol", "ensureOwnerRemains(orgId)  (when demoting an OWNER)")
     s.begin("alt", "[it would remove the last owner]")
     s.ret("ctrl", "admin", "409 An organization must keep an owner")
     s.end()
