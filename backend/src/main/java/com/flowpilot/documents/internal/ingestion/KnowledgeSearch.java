@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.flowpilot.documents.KnowledgeApi;
 import com.flowpilot.documents.KnowledgePassage;
+import com.flowpilot.projects.ProjectScope;
 
 /** Semantic search over the passages of one project. Every result carries its source (document + pages). */
 @Component
@@ -27,7 +28,7 @@ public class KnowledgeSearch implements KnowledgeApi {
 
     @Override
     @Transactional(readOnly = true)
-    public List<KnowledgePassage> search(UUID projectId, String question, int limit) {
+    public List<KnowledgePassage> search(ProjectScope scope, String question, int limit) {
         int top = Math.max(1, Math.min(limit, MAX_RESULTS));
         String vector = toVectorLiteral(embeddings.embed(List.of(question)).get(0));
 
@@ -38,13 +39,14 @@ public class KnowledgeSearch implements KnowledgeApi {
                 SELECT c.id, c.document_id, d.filename, c.chunk_index, c.page_from, c.page_to, c.content,
                        1 - (c.embedding OPERATOR(extensions.<=>) CAST(:query AS extensions.vector)) AS score
                 FROM document_chunk c
-                JOIN document d ON d.id = c.document_id
-                WHERE c.project_id = :projectId AND d.deleted_at IS NULL
+                JOIN document d ON d.id = c.document_id AND d.org_id = c.org_id
+                WHERE c.org_id = :orgId AND c.project_id = :projectId AND d.deleted_at IS NULL
                 ORDER BY c.embedding OPERATOR(extensions.<=>) CAST(:query AS extensions.vector)
                 LIMIT :limit
                 """)
                 .param("query", vector)
-                .param("projectId", projectId)
+                .param("orgId", scope.orgId())
+                .param("projectId", scope.projectId())
                 .param("limit", top)
                 .query((rs, rowNum) -> new KnowledgePassage(
                         rs.getObject("id", UUID.class),

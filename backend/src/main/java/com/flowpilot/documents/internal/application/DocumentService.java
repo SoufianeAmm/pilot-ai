@@ -20,11 +20,14 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import com.flowpilot.documents.internal.DocumentProperties;
 import com.flowpilot.documents.internal.domain.Document;
+import com.flowpilot.documents.internal.persistence.ChunkStore;
 import com.flowpilot.documents.internal.persistence.DocumentRepository;
 import com.flowpilot.documents.internal.persistence.IngestionJobQueue;
 import com.flowpilot.documents.internal.storage.DocumentStorage;
 import com.flowpilot.documents.internal.storage.FileTooLargeException;
 import com.flowpilot.documents.internal.storage.StoredFile;
+import com.flowpilot.projects.ProjectPermission;
+import com.flowpilot.projects.ProjectScope;
 import com.flowpilot.shared.id.Ids;
 import com.flowpilot.shared.web.ApiException;
 import com.flowpilot.shared.web.ProblemTypes;
@@ -41,19 +44,23 @@ public class DocumentService {
     private final DocumentProperties properties;
     private final Clock clock;
     private final IngestionJobQueue jobs;
+    private final ChunkStore chunks;
 
     DocumentService(DocumentRepository documents, DocumentStorage storage,
-                    DocumentProperties properties, Clock clock, IngestionJobQueue jobs) {
+                    DocumentProperties properties, Clock clock, IngestionJobQueue jobs, ChunkStore chunks) {
         this.documents = documents;
         this.storage = storage;
         this.properties = properties;
         this.clock = clock;
         this.jobs = jobs;
+        this.chunks = chunks;
     }
 
     @Transactional
-    public Document upload(UUID orgId, UUID projectId, UUID uploadedBy,
-                           String originalFilename, InputStream content) {
+    public Document upload(ProjectScope scope, String originalFilename, InputStream content) {
+        scope.require(ProjectPermission.DOCUMENT_UPLOAD);
+        UUID orgId = scope.orgId();
+        UUID projectId = scope.projectId();
         String filename = cleanFilename(originalFilename);
         UUID id = Ids.newId();
         // The key is built from ids only, never from the user-supplied filename.
@@ -62,12 +69,12 @@ public class DocumentService {
         StoredFile stored = store(storageKey, content);
 
         try {
-            if (documents.existsByProjectIdAndSha256AndDeletedAtIsNull(projectId, stored.sha256())) {
+            if (documents.existsByOrgIdAndProjectIdAndSha256AndDeletedAtIsNull(orgId, projectId, stored.sha256())) {
                 deleteQuietly(storageKey);
                 throw ApiException.conflict("This document has already been uploaded to the project.");
             }
             Document document = new Document(id, orgId, projectId, filename, PDF_CONTENT_TYPE,
-                    stored.sizeBytes(), stored.sha256(), storageKey, uploadedBy, clock.instant());
+                    stored.sizeBytes(), stored.sha256(), storageKey, scope.userId(), clock.instant());
             Document saved = documents.saveAndFlush(document);
             jobs.enqueue(saved.getId());   // same transaction as the document row
             return saved;
@@ -82,13 +89,13 @@ public class DocumentService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Document> list(UUID projectId, Pageable pageable) {
-        return documents.findByProjectIdAndDeletedAtIsNull(projectId, pageable);
+    public Page<Document> list(ProjectScope scope, Pageable pageable) {
+        return documents.findByOrgIdAndProjectIdAndDeletedAtIsNull(scope.orgId(), scope.projectId(), pageable);
     }
 
     @Transactional(readOnly = true)
-    public Document get(UUID projectId, UUID documentId) {
-        return documents.findByIdAndProjectIdAndDeletedAtIsNull(documentId, projectId)
+    public Document get(ProjectScope scope, UUID documentId) {
+        return documents.findByIdAndOrgIdAndProjectIdAndDeletedAtIsNull(documentId, scope.orgId(), scope.projectId())
                 .orElseThrow(() -> ApiException.notFound("Document not found."));
     }
 
@@ -101,10 +108,17 @@ public class DocumentService {
     }
 
     @Transactional
-    public Document delete(UUID projectId, UUID documentId) {
-        Document document = documents.findByIdAndProjectIdAndDeletedAtIsNull(documentId, projectId)
+    public Document delete(ProjectScope scope, UUID documentId) {
+        Document document = documents.findByIdAndOrgIdAndProjectIdAndDeletedAtIsNull(
+                        documentId, scope.orgId(), scope.projectId())
                 .orElseThrow(() -> ApiException.notFound("Document not found."));
+        // managers delete any document; everyone else only the ones they uploaded
+        boolean canDeleteAny = scope.has(ProjectPermission.DOCUMENT_MANAGE_ANY);
+        if (!canDeleteAny && !document.getUploadedBy().equals(scope.userId())) {
+            throw ApiException.forbidden("You can only delete documents you uploaded.");
+        }
         document.softDelete(clock.instant());
+        chunks.deleteByDocument(document.getId());   // a deleted document must not stay searchable
         String storageKey = document.getStorageKey();
         // remove the file only once the database change is committed
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
