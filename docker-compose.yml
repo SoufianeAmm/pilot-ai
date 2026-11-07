@@ -15,7 +15,9 @@ x-app-environment: &app-environment
   FLOWPILOT_DB_APP_PASSWORD: ${FLOWPILOT_DB_APP_PASSWORD:?set FLOWPILOT_DB_APP_PASSWORD in .env}
   FLOWPILOT_JWT_SECRET: ${FLOWPILOT_JWT_SECRET:?set FLOWPILOT_JWT_SECRET in .env}
   FLOWPILOT_ALLOWED_ORIGINS: ${FLOWPILOT_ALLOWED_ORIGINS:-http://localhost:5173}
+  FLOWPILOT_DOCUMENTS_PATH: /data/documents   # NEW
   LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+  FLOWPILOT_OLLAMA_URL: ${FLOWPILOT_OLLAMA_URL:-http://host.docker.internal:11434}
 
 services:
   db:
@@ -62,6 +64,8 @@ services:
       # Temporary direct access (replaced by Nginx in Phase 5). Host port is configurable
       # because 8080 is often taken by other local projects.
       - "127.0.0.1:${FLOWPILOT_HTTP_PORT:-8090}:8080"
+    volumes:                                    # NEW
+      - documents:/data/documents               # NEW
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8081/actuator/health/readiness || exit 1"]
       interval: 10s
@@ -72,6 +76,7 @@ services:
 
 volumes:
   pgdata:
+  documents:                                    # NEW
 
 networks:
   backend:

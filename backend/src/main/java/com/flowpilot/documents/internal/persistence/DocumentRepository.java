@@ -9,12 +9,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.flowpilot.documents.internal.domain.Document;
 
+/** Every query carries both the organization and the project (tenant rule: always org AND project). */
 public interface DocumentRepository extends JpaRepository<Document, UUID> {
 
-    Optional<Document> findByIdAndProjectIdAndDeletedAtIsNull(UUID id, UUID projectId);
+    Optional<Document> findByIdAndOrgIdAndProjectIdAndDeletedAtIsNull(UUID id, UUID orgId, UUID projectId);
 
-    Page<Document> findByProjectIdAndDeletedAtIsNull(UUID projectId, Pageable pageable);
+    Page<Document> findByOrgIdAndProjectIdAndDeletedAtIsNull(UUID orgId, UUID projectId, Pageable pageable);
 
-    boolean existsByProjectIdAndSha256AndDeletedAtIsNull(UUID projectId, byte[] sha256);
+    boolean existsByOrgIdAndProjectIdAndSha256AndDeletedAtIsNull(UUID orgId, UUID projectId, byte[] sha256);
 }
-;
