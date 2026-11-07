@@ -20,11 +20,11 @@ uml.register_fonts()
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.normpath(os.path.join(HERE, "..", "FlowPilot-UML-Identity-Organizations-AI.pdf"))
-VERSION, DATE = "1.0", datetime.date(2026, 11, 4).isoformat()
+VERSION, DATE = "1.1", datetime.date(2026, 11, 7).isoformat()
 DOC_TITLE = "FlowPilot AI: UML design of Identity, Organizations, Audit and AI integration"
 
 LEGEND = [("mine", "Soufiane: identity, organizations, audit, AI"),
-          ("friend", "Other teams: contract to implement"),
+          ("friend", "Adam / Ahmed: contract to implement"),
           ("shared", "Shared kernel"),
           ("external", "Framework / external system")]
 
@@ -107,13 +107,13 @@ def module_overview():
                attrs=["No Java API for other modules.", "REST + UI only. Consumes the", "query interfaces below."])
     y2 = 235
     w2 = 172
-    names = [("projects", "projects", ["ProjectAccess", "ProjectScope, ProjectRole,", "ProjectPermission",
+    names = [("projects", "projects  (Adam)", ["ProjectAccess", "ProjectScope, ProjectRole,", "ProjectPermission",
                                        "ProjectQueries"]),
-             ("tasks", "tasks", ["TaskQueries"]),
-             ("collab", "collaboration", ["ActivityQueries"]),
-             ("analytics", "analytics", ["ProjectMetrics"]),
-             ("documents", "documents", ["KnowledgeSearch (Phase 4)"]),
-             ("notif", "notifications", ["listens to Member*Event"])]
+             ("tasks", "tasks  (Adam)", ["TaskQueries"]),
+             ("collab", "collaboration  (to assign)", ["ActivityQueries"]),
+             ("analytics", "analytics  (Ahmed)", ["ProjectMetrics"]),
+             ("documents", "documents  (Ahmed)", ["KnowledgeApi"]),
+             ("notif", "notifications  (to assign)", ["listens to Member*Event"])]
     x = 0
     for id_, name, attrs in names:
         b = d.box(id_, name, x, y2, kind="package", width=w2, attrs=attrs, tone="friend")
@@ -402,8 +402,9 @@ def cd_org_api():
                             "+ canRemove(OrgRole actor, OrgRole target): boolean",
                             "+ ensureOwnerRemains(UUID orgId): void  (409, under org row lock)"])
     pa = d.box("pa", "ProjectAccess", right(policy, 60), yi, kind="interface", tone="friend",
-               stereotype="interface  projects team",
-               methods=["+ require(orgId, projectId, userId,", "      ProjectPermission): ProjectScope"])
+               stereotype="interface  projects (Adam)",
+               methods=["+ requirePermission(orgId, projectId, userId,", "      ProjectPermission): ProjectScope",
+                        "+ requireMembership(orgId, projectId, userId): ProjectScope"])
     d.rel("impl", "access", "realize", None, src=("l", 0.3), dst=("l", 0.5),
           via=[(-30, impl.y + impl.h * 0.3), (-30, access.y + access.h * 0.5)])
     d.rel("impl", "directory", "realize", None, src=("t", 0.5), dst=("b", 0.5),
@@ -417,7 +418,7 @@ def cd_org_api():
     d.rel("pa", "access", "dep", "uses OrganizationAccess", src="b", dst=("l", 0.8),
           via=[(pa.x + pa.w * 0.5, lane), (-44, lane), (-44, access.y + access.h * 0.8)], label_pos=0.7)
     d.note(right(pa, 30), yi, "Org OWNER / ADMIN get implicit MANAGER on every project "
-           "(PROJECT_MANAGE_ALL). Everyone else needs a project membership. The projects team implements "
+           "(PROJECT_MANAGE_ALL). Everyone else needs a project membership. Adam (projects) implements "
            "ProjectAccess on top of OrganizationAccess.", width=200)
     return d
 
@@ -596,7 +597,7 @@ def cd_ai_orchestration():
                            "@Tool + getMilestoneStatus(String milestoneRef): List<MilestoneStatus>",
                            "@Tool + getTeamWorkload(): List<MemberWorkload>",
                            "@Tool + getRecentProjectActivity(int sinceDays, int limit): List<ActivityItem>",
-                           "@Tool + searchProjectDocuments(String query, int topK): List<DocumentPassage>"])
+                           "@Tool + searchProjectDocuments(String question, int limit): List<KnowledgePassage>"])
     ledger = d.box("ledger", "EvidenceLedger", right(tools, 40), tools.y, stereotype="per request",
                    methods=["+ record(EvidenceRef ref, String fact): void", "+ recordAll(Collection<?> refs): void",
                             "+ contains(EvidenceRef): boolean", "+ refs(): Set<EvidenceRef>"])
@@ -609,10 +610,10 @@ def cd_ai_orchestration():
                     methods=["+ recordRequest(String outcome, Duration latency,", "      int promptTokens, int completionTokens): void"])
     cx = max(right(chat, 40), *(right(b, 60) for b in (ledger, recorder, validator, metrics)))
     contracts = [("pa", "ProjectAccess"), ("pq", "ProjectQueries"), ("tq", "TaskQueries"), ("pm", "ProjectMetrics"),
-                 ("aq", "ActivityQueries"), ("ks", "KnowledgeSearch")]
+                 ("aq", "ActivityQueries"), ("ks", "KnowledgeApi")]
     yy = factory.y
     for id_, name in contracts:
-        b = d.box(id_, name, cx, yy, kind="interface", tone="friend", stereotype="interface  other team", width=130)
+        b = d.box(id_, name, cx, yy, kind="interface", tone="friend", stereotype="interface  Adam / Ahmed", width=130)
         yy = below(b, 12)
     d.rel("ctrl", "svc", "assoc", None, src="b", dst="t")
     d.rel("svc", "quota", "assoc", None, src="b", dst="t")
@@ -699,36 +700,38 @@ def cd_ai_data():
 
 def cd_contracts():
     d = ClassDiagram(LEGEND)
-    pa = d.box("pa", "ProjectAccess", 0, 0, kind="interface", tone="friend", stereotype="interface  projects team",
-               methods=["+ require(UUID orgId, UUID projectId, UUID userId, ProjectPermission): ProjectScope",
+    pa = d.box("pa", "ProjectAccess", 0, 0, kind="interface", tone="friend", stereotype="interface  projects (Adam)",
+               methods=["+ requirePermission(UUID orgId, UUID projectId, UUID userId, ProjectPermission): ProjectScope",
+                        "+ requireMembership(UUID orgId, UUID projectId, UUID userId): ProjectScope",
                         "    404 if org/project not visible to the user; 403 if permission missing"])
     scope = d.box("scope", "ProjectScope", 0, below(pa, 30), kind="record", tone="friend",
-                  attrs=["orgId: UUID", "projectId: UUID", "userId: UUID", "role: ProjectRole",
-                         "permissions: Set<ProjectPermission>"], methods=["+ has(ProjectPermission): boolean"])
+                  attrs=["orgId: UUID", "projectId: UUID", "userId: UUID", "role: ProjectRole"],
+                  methods=["+ has(ProjectPermission): boolean", "+ require(ProjectPermission): void  (403)"])
     prole = d.box("prole", "ProjectRole", right(scope, 40), scope.y, kind="enum", tone="friend",
                   attrs=["MANAGER", "CONTRIBUTOR", "VIEWER"])
     pperm = d.box("pperm", "ProjectPermission", right(prole, 40), scope.y, kind="enum", tone="friend",
-                  attrs=["PROJECT_READ", "PROJECT_EDIT", "MEMBER_MANAGE", "TASK_WRITE", "TASK_DELETE",
-                         "DOCUMENT_WRITE", "AI_ASK"])
+                  attrs=["PROJECT_READ", "PROJECT_UPDATE", "PROJECT_DELETE", "MEMBER_MANAGE",
+                         "MILESTONE_MANAGE", "TASK_CREATE", "TASK_EDIT", "TASK_MANAGE_ANY", "COMMENT_WRITE",
+                         "DOCUMENT_UPLOAD", "DOCUMENT_MANAGE_ANY", "AI_ASK", "ANALYTICS_VIEW"])
     oa = d.box("oa", "OrganizationAccess", right(pa, 60), 0, kind="interface", stereotype="interface  organizations (Soufiane)",
                methods=["+ requireMembership(orgId, userId): OrgScope", "+ requirePermission(orgId, userId, OrgPermission)"])
     qx = max(right(pperm, 70), right(oa, 70))
-    pq = d.box("pq", "ProjectQueries", qx, 0, kind="interface", tone="friend", stereotype="interface  projects team",
+    pq = d.box("pq", "ProjectQueries", qx, 0, kind="interface", tone="friend", stereotype="interface  projects (Adam)",
                methods=["+ getOverview(ProjectScope): ProjectOverview",
                         "+ getMilestoneStatus(ProjectScope, String milestoneRef): List<MilestoneStatus>",
                         "    milestoneRef null = all open milestones"])
-    tq = d.box("tq", "TaskQueries", qx, below(pq, 18), kind="interface", tone="friend", stereotype="interface  tasks team",
+    tq = d.box("tq", "TaskQueries", qx, below(pq, 18), kind="interface", tone="friend", stereotype="interface  tasks (Adam)",
                methods=["+ findOverdue(ProjectScope, int limit): List<TaskSummary>",
                         "+ findBlocked(ProjectScope, int limit): List<BlockedTask>"])
     pm = d.box("pm", "ProjectMetrics", qx, below(tq, 18), kind="interface", tone="friend",
-               stereotype="interface  analytics team",
+               stereotype="interface  analytics (Ahmed)",
                methods=["+ getTeamWorkload(ProjectScope): List<MemberWorkload>", "+ getHealth(ProjectScope): HealthScore"])
     aq = d.box("aq", "ActivityQueries", qx, below(pm, 18), kind="interface", tone="friend",
-               stereotype="interface  collaboration team",
+               stereotype="interface  collaboration (to assign)",
                methods=["+ findRecent(ProjectScope, Instant since, int limit): List<ActivityItem>"])
-    ks = d.box("ks", "KnowledgeSearch", qx, below(aq, 18), kind="interface", tone="friend",
-               stereotype="interface  documents team (Phase 4)",
-               methods=["+ search(ProjectScope, String query, int topK): List<DocumentPassage>"])
+    ks = d.box("ks", "KnowledgeApi", qx, below(aq, 18), kind="interface", tone="friend",
+               stereotype="interface  documents (Ahmed)",
+               methods=["+ search(ProjectScope, String question, int limit): List<KnowledgePassage>"])
     tools = d.box("tools", "ProjectAnalystTools", 0, below(scope, 60) + 20, stereotype="ai (Soufiane)  consumer",
                   methods=["calls the interfaces on the right", "with the ProjectScope it holds"])
     d.rel("pa", "scope", "dep", "returns", src="b", dst="t")
@@ -772,8 +775,8 @@ def cd_contract_dtos():
                           "entityRef: String   \"TASK:FP-42\"", "summary: String"]),
         ("HealthScore", ["score: int    (0..100)", "band: String  GREEN | AMBER | RED",
                          "factors: Map<String, Double>"]),
-        ("DocumentPassage", ["ref: String  \"DOC:<id>#p4\"", "documentName: String", "page: int", "text: String",
-                             "score: double"]),
+        ("KnowledgePassage", ["chunkId: UUID", "documentId: UUID", "filename: String", "chunkIndex: int",
+                              "pageFrom: Integer", "pageTo: Integer", "content: String", "score: double"]),
     ]
     x = 0
     for name, attrs in specs2:
@@ -943,10 +946,10 @@ def sd_refresh():
 
 def sd_authorized_request():
     s = SequenceDiagram([("spa", "SPA"), ("filter", "JwtAuthenticationFilter"), ("jwt", "JwtService"),
-                         ("ctrl", "TaskController\ntasks team", "box", "friend"),
-                         ("pa", "ProjectAccess\nprojects team", "box", "friend"), ("oa", "OrganizationAccess"),
-                         ("svc", "TaskQueryService\ntasks team", "box", "friend"),
-                         ("repo", "TaskRepository\ntasks team", "box", "friend")])
+                         ("ctrl", "TaskController\ntasks (Adam)", "box", "friend"),
+                         ("pa", "ProjectAccess\nprojects (Adam)", "box", "friend"), ("oa", "OrganizationAccess"),
+                         ("svc", "TaskQueryService\ntasks (Adam)", "box", "friend"),
+                         ("repo", "TaskRepository\ntasks (Adam)", "box", "friend")])
     s.msg("spa", "filter", "GET /api/v1/orgs/{orgId}/projects/{projectId}/tasks  (Bearer token)")
     s.msg("filter", "jwt", "parseAndValidate(token)")
     s.begin("alt", "[missing, expired or invalid token]")
@@ -955,7 +958,7 @@ def sd_authorized_request():
     s.ret("jwt", "filter", "AuthenticatedUser(userId, email)")
     s.self_msg("filter", "set SecurityContext authentication")
     s.msg("filter", "ctrl", "list(orgId, projectId, filters, AuthenticatedUser)")
-    s.msg("ctrl", "pa", "require(orgId, projectId, user.userId(), PROJECT_READ)")
+    s.msg("ctrl", "pa", "requirePermission(orgId, projectId, user.userId(), PROJECT_READ)")
     s.msg("pa", "oa", "requireMembership(orgId, userId)")
     s.begin("alt", "[user is not a member of orgId]")
     s.ret("oa", "pa", "ApiException.notFound")
@@ -1069,12 +1072,12 @@ def sd_change_role():
 
 def sd_ask_ai():
     s = SequenceDiagram([("user", "Project member", "actor", "neutral"), ("ctrl", "AnalystController"),
-                         ("pa", "ProjectAccess\nprojects team", "box", "friend"), ("svc", "AnalystService"),
+                         ("pa", "ProjectAccess\nprojects (Adam)", "box", "friend"), ("svc", "AnalystService"),
                          ("gw", "AiGateway"), ("llm", "LLM\nOllama via Spring AI", "box", "external"),
-                         ("tools", "ProjectAnalystTools"), ("q", "TaskQueries, ...\nother teams", "box", "friend"),
+                         ("tools", "ProjectAnalystTools"), ("q", "TaskQueries, ...\nAdam / Ahmed", "box", "friend"),
                          ("val", "AnswerValidator")])
     s.msg("user", "ctrl", "POST .../messages {question}")
-    s.msg("ctrl", "pa", "require(..., AI_ASK)")
+    s.msg("ctrl", "pa", "requirePermission(..., AI_ASK)")
     s.ret("pa", "ctrl", "ProjectScope")
     s.msg("ctrl", "svc", "ask(scope, convId, question)")
     s.self_msg("svc", "quota.checkAndConsume(userId, orgId)  (AiQuotaService)")
@@ -1090,7 +1093,7 @@ def sd_ask_ai():
     s.msg("gw", "llm", "prompt + tool definitions  (no DB connection held)")
     s.begin("loop", "[the model requests a tool, at most 6 times]")
     s.msg("llm", "tools", "getOverdueTasks(limit = 20)")
-    s.msg("tools", "pa", "require(..., AI_ASK)  (re-checked on every tool call)")
+    s.msg("tools", "pa", "requirePermission(..., AI_ASK)  (re-checked on every tool call)")
     s.msg("tools", "q", "findOverdue(scope, 20)")
     s.ret("q", "tools", "List<TaskSummary>")
     s.self_msg("tools", "ledger.recordAll(tasks)  (refs FP-12, FP-17 -> EvidenceLedger)")
@@ -1125,7 +1128,7 @@ def on_page(canvas, doc):
         canvas.setStrokeColor(colors.HexColor("#E5E7EB"))
         canvas.setLineWidth(0.6)
         canvas.line(16 * mm, h - 11 * mm, w - 16 * mm, h - 11 * mm)
-    canvas.drawString(16 * mm, 8 * mm, "Owner: Soufiane  |  Draft for team review: names are the contract, propose changes by PR")
+    canvas.drawString(16 * mm, 8 * mm, "Owner: Soufiane  |  Team: Soufiane, Adam, Ahmed  |  Names are the contract, propose changes by PR")
     canvas.drawRightString(w - 16 * mm, 8 * mm, f"Page {doc.page}")
     canvas.restoreState()
 
@@ -1139,7 +1142,7 @@ def diagram_page(story, number, title, intro, diagram):
 
 def build():
     doc = BaseDocTemplate(OUT, pagesize=landscape(A4), leftMargin=16 * mm, rightMargin=16 * mm,
-                          topMargin=15 * mm, bottomMargin=13 * mm, title=DOC_TITLE, author="Soufiane",
+                          topMargin=15 * mm, bottomMargin=13 * mm, title=DOC_TITLE, author="Soufiane, Adam, Ahmed",
                           subject="UML class, sequence and use-case diagrams")
     frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id="f", leftPadding=0, rightPadding=0,
                   topPadding=0, bottomPadding=0)
@@ -1153,19 +1156,24 @@ def build():
     story.append(Spacer(1, 18))
     story.append(table([
         ["Item", "Value"],
-        ["Owner", "Soufiane (initial codebase creator)"],
+        ["Owner", "Soufiane (initial codebase creator, project lead)"],
+        ["Team", "<b>Soufiane</b>: identity, organizations, roles &amp; permissions, audit, AI integration<br/>"
+                 "<b>Adam</b>: projects, project members, milestones, tasks<br/>"
+                 "<b>Ahmed</b>: documents (upload, ingestion, knowledge search), analytics<br/>"
+                 "Collaboration and notifications: to be assigned"],
         ["Modules covered", code("identity") + ", " + code("organizations") + ", " + code("audit") + ", "
          + code("ai") + ", " + code("shared.security") + ", and the matching frontend parts"],
         ["Contents", "Module map, 2 use-case diagrams, 9 class diagrams, 8 sequence diagrams, permission matrices, "
                      "REST endpoints, frontend structure"],
-        ["Purpose", "Tell the other teams the exact class, method and endpoint names they will call, and the "
+        ["Purpose", "Tell Adam and Ahmed the exact class, method and endpoint names they will call, and the "
                     "interfaces they must implement for the AI analyst"],
         ["Version / date", f"{VERSION} / {DATE}  (design before implementation: Phase 2.2 onwards)"],
     ], [120, 520]))
     story.append(Spacer(1, 16))
     story.append(P("How to read this document", "h2"))
     for text in [
-        "<b>Colours</b>: blue = Soufiane's modules, orange = interfaces or classes another team implements, "
+        "<b>Colours</b>: blue = Soufiane's modules, orange = interfaces or classes Adam or Ahmed implement "
+        "(the owner is named in each box), "
         "green = shared kernel, purple = framework or external system (Spring, Ollama).",
         "<b>Arrows</b>: solid line with open arrow = uses / has a reference; dashed open arrow = depends on, returns "
         "or creates; dashed line with hollow triangle = implements; filled diamond = composition (part of).",
@@ -1185,7 +1193,7 @@ def build():
     for text in [
         "<b>Resolve access first.</b> Every endpoint under " + code("/api/v1/orgs/{orgId}/...") + " starts with "
         + code("OrganizationAccess.requireMembership/requirePermission") + " or, for project data, "
-        + code("ProjectAccess.require(orgId, projectId, userId, permission)") + ". Never trust an "
+        + code("ProjectAccess.requirePermission(orgId, projectId, userId, permission)") + ". Never trust an "
         + code("orgId") + " or " + code("projectId") + " sent in a request body.",
         "<b>Pass the scope, not ids.</b> Service and query methods on project data take " + code("ProjectScope")
         + " (or " + code("OrgScope") + ") as their first parameter, and every SQL query filters by "
@@ -1200,7 +1208,7 @@ def build():
         + code("limit") + " items (hard cap 50) and should answer in under 200 ms.",
         "<b>Audit sensitive actions</b> with " + code("AuditTrail.record(...)") + " (see the audit diagram). "
         "Never put passwords, tokens, API keys or document text in audit details or logs.",
-        "<b>Listen to membership events.</b> The projects team removes project memberships on "
+        "<b>Listen to membership events.</b> Adam (projects) removes project memberships on "
         + code("MemberRemovedEvent") + "; the notifications team reacts to " + code("MemberJoinedEvent") + ".",
         "<b>Time</b> comes from the injected " + code("Clock") + "; errors are " + code("ApiException")
         + " subclasses, rendered as RFC 9457 problem responses by the shared handler.",
@@ -1237,15 +1245,15 @@ def build():
                  "operations, plus the org-scoped audit log query.", cd_audit())
     diagram_page(story, "9", "Class diagram: AI analyst orchestration and tools",
                  "How a question becomes a validated, evidence-backed answer. The orange interfaces are implemented "
-                 "by the other teams (details in sections 11 and 12).", cd_ai_orchestration())
+                 "by Adam and Ahmed (details in sections 11 and 12).", cd_ai_orchestration())
     diagram_page(story, "10", "Class diagram: AI response model and persistence",
                  "The structured answer the LLM must return, the REST response, the citation format and the stored "
                  "conversations.", cd_ai_data())
-    diagram_page(story, "11", "Class diagram: interfaces other teams implement for access control and the AI",
-                 "These are the contracts the AI analyst depends on. Each team implements its interface in the root "
+    diagram_page(story, "11", "Class diagram: interfaces Adam and Ahmed implement for access control and the AI",
+                 "These are the contracts the AI analyst depends on. Adam and Ahmed implement each interface in the root "
                  "package of its module.", cd_contracts())
     diagram_page(story, "12", "Class diagram: DTO records returned by the AI query interfaces",
-                 "Implemented by the other teams. The AI reads these fields, and the UI uses the refs to build links.",
+                 "Implemented by Adam and Ahmed. The AI reads these fields, and the UI uses the refs to build links.",
                  cd_contract_dtos())
 
     sequences = [
@@ -1257,7 +1265,7 @@ def build():
          "Every refresh replaces the refresh token. Presenting an already-used token ends the whole login family.",
          sd_refresh()),
         ("Authorized request: the pattern every module follows",
-         "Example with the tasks team's endpoint: authenticate, resolve ProjectScope through ProjectAccess and "
+         "Example with Adam's tasks endpoint: authenticate, resolve ProjectScope through ProjectAccess and "
          "OrganizationAccess, then query with the scope.", sd_authorized_request()),
         ("Invite a member", "Only members with MEMBER_INVITE can invite, and never to a role above their own.",
          sd_invite()),
@@ -1274,7 +1282,7 @@ def build():
     # ---- permission matrices
     story.append(P("21  Roles and permissions", "h1"))
     story.append(P("Organization roles map to organization permissions (OrgRole.permissions()). Project roles map to "
-                   "project permissions (implemented by the projects team). Org OWNER and ADMIN have the MANAGER "
+                   "project permissions (implemented by Adam in projects). Org OWNER and ADMIN have the MANAGER "
                    "project role on every project in the organization.", "intro"))
     dot, no = "●", "–"
     org_rows = [["OrgPermission", "OWNER", "ADMIN", "PROJECT_MANAGER", "MEMBER", "Used by"],
@@ -1282,19 +1290,25 @@ def build():
                 ["ORG_DELETE", dot, no, no, no, "(later phase)"],
                 ["MEMBER_INVITE", dot, dot, no, no, "invitations endpoints"],
                 ["MEMBER_MANAGE", dot, dot + " (not owners)", no, no, "change role, remove member"],
-                ["PROJECT_CREATE", dot, dot, dot, no, "POST /orgs/{orgId}/projects (projects team)"],
+                ["PROJECT_CREATE", dot, dot, dot, no, "POST /orgs/{orgId}/projects (Adam)"],
                 ["PROJECT_MANAGE_ALL", dot, dot, no, no, "implicit MANAGER on every project"],
                 ["AUDIT_VIEW", dot, dot, no, no, "GET /orgs/{orgId}/audit"]]
     story.append(table(org_rows, [130, 60, 85, 100, 60, 300], mono_cols=(0,), center_cols=(1, 2, 3, 4)))
     story.append(Spacer(1, 14))
     proj_rows = [["ProjectPermission", "MANAGER", "CONTRIBUTOR", "VIEWER", "Meaning"],
                  ["PROJECT_READ", dot, dot, dot, "see the project, tasks, milestones, analytics"],
-                 ["PROJECT_EDIT", dot, no, no, "edit project details and milestones"],
+                 ["PROJECT_UPDATE", dot, no, no, "edit project details, archive"],
+                 ["PROJECT_DELETE", dot, no, no, "delete the project"],
                  ["MEMBER_MANAGE", dot, no, no, "add / remove project members (must be org members)"],
-                 ["TASK_WRITE", dot, dot, no, "create and edit tasks, comment"],
-                 ["TASK_DELETE", dot, dot + " (own tasks)", no, "delete tasks"],
-                 ["DOCUMENT_WRITE", dot, dot, no, "upload documents; contributors delete only their own"],
-                 ["AI_ASK", dot, dot, dot, "use the AI analyst and the knowledge hub"]]
+                 ["MILESTONE_MANAGE", dot, no, no, "create, edit, complete milestones"],
+                 ["TASK_CREATE", dot, dot, no, "create tasks"],
+                 ["TASK_EDIT", dot, dot, no, "edit tasks, change status, dependencies; delete own tasks"],
+                 ["TASK_MANAGE_ANY", dot, no, no, "delete or manage any task"],
+                 ["COMMENT_WRITE", dot, dot, no, "comment on tasks"],
+                 ["DOCUMENT_UPLOAD", dot, dot, no, "upload documents; delete only their own"],
+                 ["DOCUMENT_MANAGE_ANY", dot, no, no, "delete any document"],
+                 ["AI_ASK", dot, dot, dot, "use the AI analyst and the knowledge hub"],
+                 ["ANALYTICS_VIEW", dot, dot, dot, "see project analytics"]]
     story.append(table(proj_rows, [130, 70, 95, 70, 370], mono_cols=(0,), center_cols=(1, 2, 3)))
     story.append(PageBreak())
 
@@ -1333,10 +1347,10 @@ def build():
     for text in [
         "Confirm the query interface names and DTO fields in sections 11 and 12, or propose changes by pull request "
         "before Phase 3 starts.",
-        "Projects team: confirm the human key format (" + code("FP-42") + " for tasks, " + code("FP-M3")
+        "Adam (projects): confirm the human key format (" + code("FP-42") + " for tasks, " + code("FP-M3")
         + " for milestones) and that keys never change once assigned.",
         "Frontend: agree on the route paths in section 23, because the AI's clickable citations depend on them.",
-        "Phase 4: the documents team owns " + code("KnowledgeSearch") + "; the AI only calls it.",
+        "Ahmed (documents) owns " + code("KnowledgeApi") + "; the AI only calls it, passing its " + code("ProjectScope") + ".",
     ]:
         story.append(Paragraph(text, styles["bullet"], bulletText="•"))
 
