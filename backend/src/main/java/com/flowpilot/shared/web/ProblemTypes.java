@@ -15,6 +15,9 @@ public final class ProblemTypes {
     public static final URI CONFLICT = URI.create("urn:flowpilot:problem:conflict");
     public static final URI RATE_LIMITED = URI.create("urn:flowpilot:problem:rate-limited");
     public static final URI INTERNAL = URI.create("urn:flowpilot:problem:internal");
+    public static final URI SERVICE_UNAVAILABLE = URI.create("urn:flowpilot:problem:service-unavailable");
+    public static final URI GATEWAY_TIMEOUT = URI.create("urn:flowpilot:problem:gateway-timeout");
+    public static final URI BAD_GATEWAY = URI.create("urn:flowpilot:problem:bad-gateway");
 
     private ProblemTypes() {
     }

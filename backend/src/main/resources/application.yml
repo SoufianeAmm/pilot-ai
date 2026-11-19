@@ -10,6 +10,24 @@ spring:
   autoconfigure:
     # users come from our own database; no generated in-memory user
     exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+  ai:
+    # The chat model of the AI analyst, through Spring AI (docs/01-architecture.md section 7).
+    # Changing provider = changing the starter and these settings, not the code.
+    model:
+      # documents use their own embedding client (flowpilot.ai.ollama below), so no Spring AI one
+      embedding: none
+    ollama:
+      base-url: ${FLOWPILOT_OLLAMA_URL:http://localhost:11434}
+      init:
+        # never download models at startup: "ollama pull" is a deliberate setup step
+        pull-model-strategy: never
+      chat:
+        model: ${FLOWPILOT_CHAT_MODEL:qwen3:4b-instruct}
+        temperature: 0.2
+        keep-alive: 30m
+    retry:
+      # the AI gateway owns timeouts and failures; no hidden retries that would double a 120 s wait
+      max-attempts: 1
   datasource:
     url: ${FLOWPILOT_DB_URL:jdbc:postgresql://localhost:5432/flowpilot}
     username: ${FLOWPILOT_DB_APP_USER:flowpilot_app}
@@ -85,6 +103,16 @@ flowpilot:
     ollama:
       base-url: ${FLOWPILOT_OLLAMA_URL:http://localhost:11434}
       embedding-model: ${FLOWPILOT_EMBEDDING_MODEL:nomic-embed-text}
+    analyst:
+      max-concurrent-calls: ${FLOWPILOT_AI_MAX_CONCURRENT:2}   # one local GPU serves 1-2 requests at a time
+      queue-wait: 2s                                          # then 503 + Retry-After
+      call-timeout: ${FLOWPILOT_AI_TIMEOUT:120s}              # then 504
+      max-question-length: 2000
+      retrieval-limit: 4                                      # document passages per question
+      min-relevance: 0.35
+      max-passage-chars: 1500
+      history-turns: 3
+      max-output-tokens: 800
 
   organizations:
     invitation-ttl: 7d

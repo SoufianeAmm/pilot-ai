@@ -16,7 +16,7 @@ public final class Problems {
         problem.setType(ex.type());
         problem.setTitle(ex.title());
         ResponseEntity.BodyBuilder builder = ResponseEntity.status(ex.status());
-        if (ex instanceof RateLimitedException limited) {
+        if (ex instanceof RetryLaterException limited) {
             long seconds = Math.max(1, (long) Math.ceil(limited.retryAfter().toMillis() / 1000.0));
             builder.header(HttpHeaders.RETRY_AFTER, Long.toString(seconds));
         }
